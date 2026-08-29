@@ -16,10 +16,15 @@ export default async function handler(req, res) {
 
   const { action, data } = req.body || {};
 
+  // Scheduling Logs sheet (reschedule/cancellation history)
+  const LOGS_SHEET_ID = '4996209927212932';
+
   try {
     switch (action) {
       case 'getSheet':
         return await getSheet(token, sheetId, res);
+      case 'getLogs':
+        return await getSheet(token, LOGS_SHEET_ID, res);
       case 'addRow':
         return await addRow(token, sheetId, data, res);
       case 'updateRow':
