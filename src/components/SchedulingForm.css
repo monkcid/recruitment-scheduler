@@ -115,6 +115,22 @@
   padding: 8px 12px;
 }
 
+.round-group-items.scrollable {
+  max-height: 174px; /* ~3 items visible */
+  overflow-y: auto;
+  scrollbar-width: thin;
+  border-bottom: 3px solid #dfe4ff; /* hint that more content is below */
+}
+
+.round-group-items.scrollable::-webkit-scrollbar {
+  width: 6px;
+}
+
+.round-group-items.scrollable::-webkit-scrollbar-thumb {
+  background: #b8c1f2;
+  border-radius: 3px;
+}
+
 .week-label {
   background: #0f2043;
   color: white;

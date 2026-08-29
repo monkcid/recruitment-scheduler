@@ -124,20 +124,22 @@ export function UpcomingPanel({ interviews, role }) {
                 <span>Round {round}</span>
                 <span className="day-count">{items.length}</span>
               </div>
-              {items.map((item, ii) => (
-                <div key={ii} className="calendar-item">
-                  <span className="item-time">
-                    {formatDay(item.date)}
-                    <br />
-                    {item.timeStr || 'Time TBD'}
-                  </span>
-                  <span className="item-detail">
-                    <strong>{item.candidate}</strong>
-                    <br />
-                    Panel: {item.panel}
-                  </span>
-                </div>
-              ))}
+              <div className={`round-group-items${items.length > 3 ? ' scrollable' : ''}`}>
+                {items.map((item, ii) => (
+                  <div key={ii} className="calendar-item">
+                    <span className="item-time">
+                      {formatDay(item.date)}
+                      <br />
+                      {item.timeStr || 'Time TBD'}
+                    </span>
+                    <span className="item-detail">
+                      <strong>{item.candidate}</strong>
+                      <br />
+                      Panel: {item.panel}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
           ))}
         </div>
