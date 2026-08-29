@@ -269,9 +269,55 @@
   margin: 0;
 }
 
+.rc-month {
+  font-size: 13px;
+  font-weight: 500;
+  color: #888;
+}
+
+/* Interview Heatmap */
+.heatmap {
+  background: #f0f9ff;
+  border: 1px solid #bde3ff;
+  border-radius: 10px;
+  padding: 20px;
+}
+
+.heatmap h3 {
+  color: #0f2043;
+  font-size: 17px;
+  margin: 0 0 14px 0;
+}
+
+.heatmap .role-select {
+  max-width: 360px;
+}
+
+.heatmap-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+
+.stat-card-wide {
+  grid-column: 1 / -1;
+  border-left-color: #e67e22 !important;
+}
+
+.stat-reason {
+  font-size: 16px;
+  font-weight: 600;
+  color: #0f2043;
+  text-transform: capitalize;
+}
+
 @media (max-width: 768px) {
   .rc-columns {
     grid-template-columns: 1fr;
+  }
+
+  .heatmap-grid {
+    grid-template-columns: 1fr 1fr;
   }
 }
 

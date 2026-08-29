@@ -98,18 +98,23 @@ const LOG_COLS = {
   reportedBy: 538885924622212,
 };
 
-// Reschedule Corner — stats from the Scheduling Logs sheet
+// Reschedule Corner — stats from the Scheduling Logs sheet (current month only)
 function RescheduleCorner({ logs }) {
   const stats = useMemo(() => {
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+
     const events = logs
       .map(row => ({
         type: getCell(row, LOG_COLS.eventType),
         candidate: getCell(row, LOG_COLS.candidate),
         panel: getCell(row, LOG_COLS.panel),
         reason: getCell(row, LOG_COLS.reason),
-        loggedAt: getCell(row, LOG_COLS.loggedAt),
+        loggedAt: parseDate(String(getCell(row, LOG_COLS.loggedAt)).slice(0, 10)),
       }))
-      .filter(e => e.type === 'Reschedule');
+      .filter(e => e.type === 'Reschedule' &&
+        e.loggedAt && e.loggedAt >= monthStart && e.loggedAt <= monthEnd);
 
     const byCandidate = {};
     const byPanel = {};
@@ -126,7 +131,7 @@ function RescheduleCorner({ logs }) {
 
   return (
     <div className="reschedule-corner">
-      <h3>🔄 Reschedule Corner</h3>
+      <h3>🔄 Reschedule Corner <span className="rc-month">({new Date().toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })})</span></h3>
       <div className="rc-total">
         <span className="stat-number">{stats.total}</span>
         <span className="stat-desc">Total reschedules</span>
@@ -166,6 +171,109 @@ function RescheduleCorner({ logs }) {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+// Interview Heatmap — per-interviewer workload stats
+function InterviewHeatmap({ interviews, logs }) {
+  const [selected, setSelected] = useState('');
+
+  // Unique interviewer names across all rounds
+  const interviewers = useMemo(() => {
+    const names = new Set();
+    interviews.forEach(row => {
+      for (let r = 1; r <= 5; r++) {
+        const name = getCell(row, COLUMN_IDS.rounds[r].interviewer);
+        if (name && name !== `Round ${r} - Interviewer`) names.add(name);
+      }
+    });
+    return Array.from(names).sort();
+  }, [interviews]);
+
+  const stats = useMemo(() => {
+    if (!selected) return null;
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+    const fourWeeksAgo = new Date(today);
+    fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
+
+    let total = 0;
+    let thisMonth = 0;
+    let lastFourWeeks = 0;
+
+    interviews.forEach(row => {
+      for (let r = 1; r <= 5; r++) {
+        const name = getCell(row, COLUMN_IDS.rounds[r].interviewer);
+        if ((name || '').toLowerCase() !== selected.toLowerCase()) continue;
+        const date = parseDate(getCell(row, COLUMN_IDS.rounds[r].date));
+        if (!date || date > today) continue; // "so far" = up to today
+        total++;
+        if (date >= monthStart) thisMonth++;
+        if (date >= fourWeeksAgo) lastFourWeeks++;
+      }
+    });
+
+    // Reschedules for this panel from logs
+    const reschedules = logs
+      .map(row => ({
+        type: getCell(row, LOG_COLS.eventType),
+        panel: getCell(row, LOG_COLS.panel),
+        reason: getCell(row, LOG_COLS.reason),
+      }))
+      .filter(e => e.type === 'Reschedule' &&
+        (e.panel || '').toLowerCase() === selected.toLowerCase());
+
+    // Most common reschedule reason
+    const reasonCounts = {};
+    reschedules.forEach(e => {
+      const key = (e.reason || '(no reason given)').trim().toLowerCase();
+      reasonCounts[key] = (reasonCounts[key] || 0) + 1;
+    });
+    const topReason = Object.entries(reasonCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || '—';
+
+    return {
+      total,
+      thisMonth,
+      avgWeekly: (lastFourWeeks / 4).toFixed(1),
+      rescheduleCount: reschedules.length,
+      topReason,
+    };
+  }, [interviews, logs, selected]);
+
+  return (
+    <div className="heatmap">
+      <h3>🔥 Interview Heatmap</h3>
+      <select className="role-select" value={selected} onChange={(e) => setSelected(e.target.value)}>
+        <option value="">— Select interviewer —</option>
+        {interviewers.map(name => <option key={name} value={name}>{name}</option>)}
+      </select>
+
+      {stats && (
+        <div className="heatmap-grid">
+          <div className="stat-card">
+            <span className="stat-number">{stats.total}</span>
+            <span className="stat-desc">Total interviews so far</span>
+          </div>
+          <div className="stat-card">
+            <span className="stat-number">{stats.thisMonth}</span>
+            <span className="stat-desc">This month</span>
+          </div>
+          <div className="stat-card">
+            <span className="stat-number">{stats.avgWeekly}</span>
+            <span className="stat-desc">Avg weekly interviews (last 4 weeks)</span>
+          </div>
+          <div className="stat-card">
+            <span className="stat-number">{stats.rescheduleCount}</span>
+            <span className="stat-desc">Total reschedule requests</span>
+          </div>
+          <div className="stat-card stat-card-wide">
+            <span className="stat-reason">{stats.topReason}</span>
+            <span className="stat-desc">Most common reschedule reason</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -352,6 +460,8 @@ function App() {
           </div>
 
           <RescheduleCorner logs={logs} />
+
+          <InterviewHeatmap interviews={interviews} logs={logs} />
 
           <div className="home-footer">
             <button onClick={() => { fetchInterviews(); fetchLogs(); }} className="btn btn-secondary" disabled={loading}>
