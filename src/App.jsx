@@ -12,11 +12,11 @@ export const COLUMN_IDS = {
   coordinator: 2747206844845956, // RC column
   role: 4999006658531204,
   rounds: {
-    1: { interviewer: 495407031160708, duration: 4717531681820548 },
-    2: { interviewer: 4154581728399236, duration: 213932054450052 },
-    3: { interviewer: 1902781914713988, duration: 8798918844125060 },
-    4: { interviewer: 5280481635241860, duration: 4295319216754564 },
-    5: { interviewer: 3591631774977924, duration: 6547119030439812 },
+    1: { interviewer: 495407031160708, date: 8658181355769732, time: 829701515677572, duration: 4717531681820548 },
+    2: { interviewer: 4154581728399236, date: 6406381542084484, time: 5333301143048068, duration: 213932054450052 },
+    3: { interviewer: 1902781914713988, date: 7532281448927108, time: 3028681821556612, duration: 8798918844125060 },
+    4: { interviewer: 5280481635241860, date: 776882007871364, time: 8095231402348420, duration: 4295319216754564 },
+    5: { interviewer: 3591631774977924, date: 5843431588663172, time: 1339831961292676, duration: 6547119030439812 },
   },
   specialRequests: 2043519403069316,
   status: 2465731868135300,
@@ -74,6 +74,7 @@ function App() {
         { columnId: COLUMN_IDS.emailId, value: formData.emailId },
         { columnId: COLUMN_IDS.greenhouse, value: formData.greenhouse },
         { columnId: COLUMN_IDS.coordinator, value: formData.coordinator },
+        { columnId: COLUMN_IDS.role, value: formData.role },
         { columnId: COLUMN_IDS.status, value: 'in progress' },
       ];
 
@@ -138,6 +139,7 @@ function App() {
           onSubmit={handleSubmit}
           onCancel={() => setView('home')}
           isLoading={loading}
+          interviews={interviews}
         />
       )}
     </div>
