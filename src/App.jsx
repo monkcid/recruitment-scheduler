@@ -87,6 +87,89 @@ function MiniCalendar() {
   );
 }
 
+// Log sheet column IDs (Scheduling Logs)
+const LOG_COLS = {
+  loggedAt: 3072160715018116,
+  eventType: 7575760342388612,
+  candidate: 1946260808175492,
+  panel: 6449860435545988,
+  round: 4198060621860740,
+  reason: 8701660249231236,
+  reportedBy: 538885924622212,
+};
+
+// Reschedule Corner — stats from the Scheduling Logs sheet
+function RescheduleCorner({ logs }) {
+  const stats = useMemo(() => {
+    const events = logs
+      .map(row => ({
+        type: getCell(row, LOG_COLS.eventType),
+        candidate: getCell(row, LOG_COLS.candidate),
+        panel: getCell(row, LOG_COLS.panel),
+        reason: getCell(row, LOG_COLS.reason),
+        loggedAt: getCell(row, LOG_COLS.loggedAt),
+      }))
+      .filter(e => e.type === 'Reschedule');
+
+    const byCandidate = {};
+    const byPanel = {};
+    events.forEach(e => {
+      if (e.candidate) byCandidate[e.candidate] = (byCandidate[e.candidate] || 0) + 1;
+      if (e.panel) {
+        if (!byPanel[e.panel]) byPanel[e.panel] = [];
+        byPanel[e.panel].push(e.reason || '(no reason given)');
+      }
+    });
+
+    return { total: events.length, byCandidate, byPanel };
+  }, [logs]);
+
+  return (
+    <div className="reschedule-corner">
+      <h3>🔄 Reschedule Corner</h3>
+      <div className="rc-total">
+        <span className="stat-number">{stats.total}</span>
+        <span className="stat-desc">Total reschedules</span>
+      </div>
+
+      <div className="rc-columns">
+        <div className="rc-block">
+          <h4>By Candidate</h4>
+          {Object.keys(stats.byCandidate).length === 0 ? (
+            <p className="rc-empty">No reschedules yet</p>
+          ) : (
+            <ul>
+              {Object.entries(stats.byCandidate)
+                .sort((a, b) => b[1] - a[1])
+                .map(([name, count]) => (
+                  <li key={name}><strong>{name}</strong> — {count}</li>
+                ))}
+            </ul>
+          )}
+        </div>
+
+        <div className="rc-block">
+          <h4>By Panel (with reasons)</h4>
+          {Object.keys(stats.byPanel).length === 0 ? (
+            <p className="rc-empty">No reschedules yet</p>
+          ) : (
+            <ul>
+              {Object.entries(stats.byPanel).map(([panel, reasons]) => (
+                <li key={panel}>
+                  <strong>{panel}</strong> — {reasons.length}
+                  <ul className="rc-reasons">
+                    {reasons.map((r, i) => <li key={i}>{r}</li>)}
+                  </ul>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Quick stats panel
 function QuickStats({ interviews }) {
   const stats = useMemo(() => {
@@ -143,10 +226,27 @@ function App() {
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
   const [homeRole, setHomeRole] = useState('');
+  const [logs, setLogs] = useState([]);
 
   useEffect(() => {
     fetchInterviews();
+    fetchLogs();
   }, []);
+
+  const fetchLogs = async () => {
+    try {
+      const response = await fetch('/api/smartsheet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'getLogs' }),
+      });
+      if (!response.ok) return;
+      const data = await response.json();
+      setLogs(data.rows || []);
+    } catch (err) {
+      console.error('Failed to load logs:', err);
+    }
+  };
 
   const fetchInterviews = async () => {
     setLoading(true);
@@ -251,8 +351,10 @@ function App() {
             <QuickStats interviews={interviews} />
           </div>
 
+          <RescheduleCorner logs={logs} />
+
           <div className="home-footer">
-            <button onClick={fetchInterviews} className="btn btn-secondary" disabled={loading}>
+            <button onClick={() => { fetchInterviews(); fetchLogs(); }} className="btn btn-secondary" disabled={loading}>
               {loading ? '⟳ Refreshing…' : '⟳ Refresh Data'}
             </button>
           </div>
