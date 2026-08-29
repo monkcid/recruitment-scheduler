@@ -175,6 +175,25 @@ function RescheduleCorner({ logs }) {
   );
 }
 
+function startOfWeekMonday(date) {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  const day = d.getDay();
+  d.setDate(d.getDate() + (day === 0 ? -6 : 1 - day));
+  return d;
+}
+
+function upcomingWeekLabel(weekStart, today) {
+  const thisWeek = startOfWeekMonday(today);
+  const diff = Math.round((weekStart - thisWeek) / (7 * 24 * 3600 * 1000));
+  if (diff === 0) return 'This Week';
+  if (diff === 1) return 'Next Week';
+  const end = new Date(weekStart);
+  end.setDate(end.getDate() + 6);
+  const fmt = (d) => d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+  return `${fmt(weekStart)} – ${fmt(end)}`;
+}
+
 // Interview Heatmap — per-interviewer workload stats
 function InterviewHeatmap({ interviews, logs }) {
   const [selected, setSelected] = useState('');
@@ -202,18 +221,46 @@ function InterviewHeatmap({ interviews, logs }) {
     let total = 0;
     let thisMonth = 0;
     let lastFourWeeks = 0;
+    const upcomingItems = [];
 
     interviews.forEach(row => {
       for (let r = 1; r <= 5; r++) {
         const name = getCell(row, COLUMN_IDS.rounds[r].interviewer);
         if ((name || '').toLowerCase() !== selected.toLowerCase()) continue;
         const date = parseDate(getCell(row, COLUMN_IDS.rounds[r].date));
-        if (!date || date > today) continue; // "so far" = up to today
+        if (!date) continue;
+        const dayStart = new Date();
+        dayStart.setHours(0, 0, 0, 0);
+        if (date >= dayStart) {
+          // Future interview → goes to the upcoming section
+          upcomingItems.push({
+            date,
+            timeStr: getCell(row, COLUMN_IDS.rounds[r].time),
+            candidate: getCell(row, COLUMN_IDS.candidateName),
+            round: r,
+          });
+          continue;
+        }
         total++;
         if (date >= monthStart) thisMonth++;
         if (date >= fourWeeksAgo) lastFourWeeks++;
       }
     });
+
+    // Group upcoming by week
+    upcomingItems.sort((a, b) => a.date - b.date);
+    const startToday = new Date();
+    startToday.setHours(0, 0, 0, 0);
+    const weekMap = new Map();
+    upcomingItems.forEach(item => {
+      const ws = startOfWeekMonday(item.date).getTime();
+      if (!weekMap.has(ws)) weekMap.set(ws, []);
+      weekMap.get(ws).push(item);
+    });
+    const upcomingWeeks = Array.from(weekMap.entries()).map(([ws, items]) => ({
+      label: upcomingWeekLabel(new Date(ws), startToday),
+      items,
+    }));
 
     // Reschedules for this panel from logs
     const reschedules = logs
@@ -239,6 +286,8 @@ function InterviewHeatmap({ interviews, logs }) {
       avgWeekly: (lastFourWeeks / 4).toFixed(1),
       rescheduleCount: reschedules.length,
       topReason,
+      upcomingTotal: upcomingItems.length,
+      upcomingWeeks,
     };
   }, [interviews, logs, selected]);
 
@@ -272,6 +321,38 @@ function InterviewHeatmap({ interviews, logs }) {
             <span className="stat-reason">{stats.topReason}</span>
             <span className="stat-desc">Most common reschedule reason</span>
           </div>
+        </div>
+      )}
+
+      {stats && (
+        <div className="heatmap-upcoming">
+          <div className="hu-header">
+            <h4>Upcoming Interviews — Week-wise Focus</h4>
+            <span className="hu-total">{stats.upcomingTotal} total</span>
+          </div>
+          {stats.upcomingWeeks.length === 0 ? (
+            <p className="rc-empty">No upcoming interviews for this panel.</p>
+          ) : (
+            <div className="hu-weeks">
+              {stats.upcomingWeeks.map((week, wi) => (
+                <div key={wi} className="hu-week">
+                  <div className="hu-week-header">
+                    <span>{week.label}</span>
+                    <span className="day-count-blue">{week.items.length}</span>
+                  </div>
+                  {week.items.map((item, ii) => (
+                    <div key={ii} className="hu-item">
+                      <span className="hu-date">
+                        {item.date.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}
+                        {item.timeStr ? ` · ${item.timeStr}` : ''}
+                      </span>
+                      <span className="hu-candidate">{item.candidate} <span className="item-round">· R{item.round}</span></span>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
