@@ -1,142 +1,158 @@
 import { useState } from 'react';
 import './SchedulingForm.css';
 
-function SchedulingForm({ onSubmit, isLoading }) {
-  const [formData, setFormData] = useState({
-    candidateName: '',
-    round: '1',
-    recruiterName: '',
-    interviewerName: '',
-    date: '',
-    time: '',
-  });
+const COORDINATORS = ['Priti', 'Meghana'];
+const DURATIONS = ['30 minutes', '45 minutes', '60 minutes', '90 minutes'];
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value,
-    }));
+function SchedulingForm({ onSubmit, onCancel, isLoading }) {
+  const [coordinator, setCoordinator] = useState('');
+  const [candidateName, setCandidateName] = useState('');
+  const [greenhouse, setGreenhouse] = useState('');
+  const [emailId, setEmailId] = useState('');
+  const [numInterviews, setNumInterviews] = useState(1);
+  const [rounds, setRounds] = useState([{ interviewer: '', duration: '' }]);
+  const [specialRequests, setSpecialRequests] = useState('');
+
+  const handleNumInterviewsChange = (e) => {
+    const n = parseInt(e.target.value, 10);
+    setNumInterviews(n);
+    setRounds(prev => {
+      const next = [...prev];
+      while (next.length < n) next.push({ interviewer: '', duration: '' });
+      return next.slice(0, n);
+    });
+  };
+
+  const updateRound = (index, field, value) => {
+    setRounds(prev => prev.map((r, i) => (i === index ? { ...r, [field]: value } : r)));
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    if (!formData.candidateName || !formData.recruiterName || !formData.interviewerName || !formData.date || !formData.time) {
-      alert('Please fill in all fields');
-      return;
+    if (!coordinator) return alert('Please select a Recruitment Coordinator');
+    if (!candidateName.trim()) return alert('Please enter the Candidate Name');
+    if (!emailId.trim()) return alert('Please enter the Email ID');
+    for (let i = 0; i < rounds.length; i++) {
+      if (!rounds[i].interviewer.trim()) return alert(`Please enter the interviewer for Round ${i + 1}`);
+      if (!rounds[i].duration) return alert(`Please select the duration for Round ${i + 1}`);
     }
 
-    onSubmit(formData);
-    setFormData({
-      candidateName: '',
-      round: '1',
-      recruiterName: '',
-      interviewerName: '',
-      date: '',
-      time: '',
+    onSubmit({
+      coordinator,
+      candidateName: candidateName.trim(),
+      greenhouse: greenhouse.trim(),
+      emailId: emailId.trim(),
+      rounds,
+      specialRequests: specialRequests.trim(),
     });
   };
 
   return (
-    <div className="scheduling-form-container">
-      <h2>Schedule Interview</h2>
+    <div className="form-card">
+      <div className="form-card-header">
+        <h2>Schedule Fresh Interview</h2>
+        <button type="button" className="btn btn-back" onClick={onCancel} disabled={isLoading}>
+          ← Back
+        </button>
+      </div>
 
       <form onSubmit={handleSubmit} className="scheduling-form">
         <div className="form-group">
-          <label htmlFor="candidateName">Candidate Name *</label>
+          <label>Recruitment Coordinator *</label>
+          <select value={coordinator} onChange={(e) => setCoordinator(e.target.value)} disabled={isLoading}>
+            <option value="">— Select coordinator —</option>
+            {COORDINATORS.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </div>
+
+        <div className="form-group">
+          <label>Candidate Name *</label>
           <input
             type="text"
-            id="candidateName"
-            name="candidateName"
-            value={formData.candidateName}
-            onChange={handleChange}
+            value={candidateName}
+            onChange={(e) => setCandidateName(e.target.value)}
             placeholder="Enter candidate name"
             disabled={isLoading}
           />
         </div>
 
         <div className="form-group">
-          <label htmlFor="round">Interview Round *</label>
-          <select
-            id="round"
-            name="round"
-            value={formData.round}
-            onChange={handleChange}
+          <label>Greenhouse</label>
+          <textarea
+            value={greenhouse}
+            onChange={(e) => setGreenhouse(e.target.value)}
+            placeholder="Paste the candidate's Greenhouse (ATS) URL"
+            rows={2}
             disabled={isLoading}
-          >
-            <option value="1">Round 1</option>
-            <option value="2">Round 2</option>
-            <option value="3">Round 3</option>
-            <option value="4">Round 4</option>
-            <option value="5">Round 5</option>
+          />
+        </div>
+
+        <div className="form-group">
+          <label>Email ID *</label>
+          <input
+            type="email"
+            value={emailId}
+            onChange={(e) => setEmailId(e.target.value)}
+            placeholder="candidate@email.com"
+            disabled={isLoading}
+          />
+        </div>
+
+        <div className="form-group">
+          <label>Number of Interviews *</label>
+          <select value={numInterviews} onChange={handleNumInterviewsChange} disabled={isLoading}>
+            {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n}</option>)}
           </select>
         </div>
 
+        {rounds.map((round, i) => (
+          <div key={i} className="round-section">
+            <h3>Round {i + 1}</h3>
+            <div className="form-group">
+              <label>Round {i + 1} Interviewer *</label>
+              <input
+                type="text"
+                value={round.interviewer}
+                onChange={(e) => updateRound(i, 'interviewer', e.target.value)}
+                placeholder="Interviewer name"
+                disabled={isLoading}
+              />
+            </div>
+            <div className="form-group">
+              <label>Round {i + 1} Duration *</label>
+              <select
+                value={round.duration}
+                onChange={(e) => updateRound(i, 'duration', e.target.value)}
+                disabled={isLoading}
+              >
+                <option value="">— Select duration —</option>
+                {DURATIONS.map(d => <option key={d} value={d}>{d}</option>)}
+              </select>
+            </div>
+          </div>
+        ))}
+
         <div className="form-group">
-          <label htmlFor="recruiterName">Recruiter Name *</label>
-          <input
-            type="text"
-            id="recruiterName"
-            name="recruiterName"
-            value={formData.recruiterName}
-            onChange={handleChange}
-            placeholder="Enter recruiter name"
+          <label>Special Requests</label>
+          <textarea
+            value={specialRequests}
+            onChange={(e) => setSpecialRequests(e.target.value)}
+            placeholder="Any special requests (timezone constraints, panel preferences, etc.)"
+            rows={3}
             disabled={isLoading}
           />
         </div>
 
-        <div className="form-group">
-          <label htmlFor="interviewerName">Interviewer Name *</label>
-          <input
-            type="text"
-            id="interviewerName"
-            name="interviewerName"
-            value={formData.interviewerName}
-            onChange={handleChange}
-            placeholder="Enter interviewer name"
-            disabled={isLoading}
-          />
+        <div className="form-actions">
+          <button type="button" className="btn btn-secondary" onClick={onCancel} disabled={isLoading}>
+            Cancel
+          </button>
+          <button type="submit" className="btn btn-primary" disabled={isLoading}>
+            {isLoading ? 'Submitting…' : 'Submit'}
+          </button>
         </div>
-
-        <div className="form-group">
-          <label htmlFor="date">Interview Date *</label>
-          <input
-            type="date"
-            id="date"
-            name="date"
-            value={formData.date}
-            onChange={handleChange}
-            disabled={isLoading}
-          />
-        </div>
-
-        <div className="form-group">
-          <label htmlFor="time">Interview Time *</label>
-          <input
-            type="time"
-            id="time"
-            name="time"
-            value={formData.time}
-            onChange={handleChange}
-            disabled={isLoading}
-          />
-        </div>
-
-        <button type="submit" className="btn btn-primary" disabled={isLoading}>
-          {isLoading ? 'Scheduling...' : 'Schedule Interview'}
-        </button>
       </form>
-
-      <div className="form-info">
-        <h3>Quick Tips</h3>
-        <ul>
-          <li>Select which round of interviews this is</li>
-          <li>All fields are required</li>
-          <li>Data saves directly to Smartsheet</li>
-          <li>You can reschedule anytime</li>
-        </ul>
-      </div>
     </div>
   );
 }

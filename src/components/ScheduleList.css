@@ -13,7 +13,7 @@
 }
 
 .schedule-list-header h2 {
-  color: #333;
+  color: #0f2043;
   font-size: 20px;
   margin: 0;
 }
@@ -58,23 +58,15 @@
 }
 
 .interview-list {
-  min-height: 200px;
+  min-height: 120px;
 }
 
-.loading {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 200px;
-  color: #999;
-  font-style: italic;
-}
-
+.loading,
 .empty-state {
   display: flex;
   justify-content: center;
   align-items: center;
-  height: 200px;
+  height: 140px;
   color: #999;
 }
 
@@ -103,13 +95,13 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .candidate-info h3 {
   margin: 0;
   font-size: 16px;
-  color: #333;
+  color: #0f2043;
   font-weight: 600;
 }
 
@@ -134,8 +126,7 @@
   color: #1976d2;
 }
 
-.badge-in_progress,
-.badge-in\ progress {
+.badge-in-progress {
   background: #fff3e0;
   color: #e65100;
 }
@@ -145,32 +136,31 @@
   color: #666;
 }
 
-.card-details {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  padding: 12px 0;
-  border-top: 1px solid #f0f0f0;
-  border-bottom: 1px solid #f0f0f0;
-  margin: 12px 0;
-}
-
-.detail-item {
+.rounds-summary {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 0;
+  border-top: 1px solid #f0f0f0;
 }
 
-.detail-item .label {
+.round-chip {
+  background: #f5f7ff;
+  border: 1px solid #dfe4ff;
+  border-radius: 16px;
+  padding: 4px 12px;
   font-size: 12px;
-  font-weight: 600;
-  color: #999;
-  text-transform: uppercase;
+  color: #333;
 }
 
-.detail-item .value {
-  font-size: 14px;
-  color: #333;
+.card-notes {
+  font-size: 13px;
+  color: #666;
+  padding: 8px;
+  background: #fafafa;
+  border-radius: 6px;
+  border-left: 3px solid #667eea;
+  margin-top: 8px;
 }
 
 .schedule-stats {
@@ -198,10 +188,4 @@
   font-size: 18px;
   font-weight: 600;
   color: #667eea;
-}
-
-@media (max-width: 768px) {
-  .card-details {
-    grid-template-columns: 1fr;
-  }
 }

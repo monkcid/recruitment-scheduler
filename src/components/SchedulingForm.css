@@ -1,20 +1,35 @@
-.scheduling-form-container {
-  background: #f9f9f9;
-  border-radius: 12px;
-  padding: 24px;
-  border: 1px solid #e0e0e0;
+.form-card {
+  background: white;
+  padding: 32px;
+  border-radius: 0 0 12px 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
 }
 
-.scheduling-form-container h2 {
+.form-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.form-card-header h2 {
+  color: #0f2043;
+  font-size: 22px;
+  margin: 0;
+}
+
+.btn-back {
+  background: #f0f0f0;
   color: #333;
-  margin-bottom: 20px;
-  font-size: 20px;
+  padding: 8px 16px;
+  font-size: 13px;
 }
 
 .scheduling-form {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  max-width: 640px;
 }
 
 .form-group {
@@ -30,57 +45,59 @@
 }
 
 .form-group input,
-.form-group select {
+.form-group select,
+.form-group textarea {
   padding: 12px;
   border: 1px solid #ddd;
   border-radius: 8px;
   font-size: 14px;
   transition: border-color 0.3s ease;
   background: white;
+  font-family: inherit;
+  resize: vertical;
 }
 
 .form-group input:focus,
-.form-group select:focus {
+.form-group select:focus,
+.form-group textarea:focus {
   outline: none;
   border-color: #667eea;
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
 .form-group input:disabled,
-.form-group select:disabled {
+.form-group select:disabled,
+.form-group textarea:disabled {
   background: #f5f5f5;
   color: #999;
   cursor: not-allowed;
 }
 
-.scheduling-form .btn {
-  margin-top: 8px;
-  padding: 14px;
+.round-section {
+  background: #f5f7ff;
+  border: 1px solid #dfe4ff;
+  border-left: 4px solid #667eea;
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.round-section h3 {
+  margin: 0;
+  color: #0f2043;
   font-size: 16px;
 }
 
-.form-info {
-  margin-top: 24px;
-  padding: 16px;
-  background: #f0f4ff;
-  border-radius: 8px;
-  border-left: 4px solid #667eea;
+.form-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 8px;
 }
 
-.form-info h3 {
-  color: #333;
-  font-size: 14px;
-  margin-bottom: 8px;
-  margin-top: 0;
-}
-
-.form-info ul {
-  margin: 0;
-  padding-left: 20px;
-  color: #666;
-  font-size: 13px;
-}
-
-.form-info li {
-  margin-bottom: 6px;
+.form-actions .btn {
+  padding: 14px 32px;
+  font-size: 15px;
 }
