@@ -93,14 +93,18 @@ function App() {
         body: JSON.stringify({ action: 'addRow', data: { cells } }),
       });
 
-      if (!response.ok) throw new Error('Failed to submit');
+      if (!response.ok) {
+        let detail = '';
+        try { detail = (await response.json()).error || ''; } catch { /* ignore */ }
+        throw new Error(detail || `Server error ${response.status}`);
+      }
 
       setSuccessMessage(`Interview request for ${formData.candidateName} submitted successfully!`);
       setTimeout(() => setSuccessMessage(''), 5000);
       setView('home');
       await fetchInterviews();
     } catch (err) {
-      setError('Failed to submit. Please try again.');
+      setError(`Failed to submit: ${err.message}`);
       console.error(err);
     } finally {
       setLoading(false);
