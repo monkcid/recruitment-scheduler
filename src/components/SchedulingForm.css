@@ -25,11 +25,84 @@
   font-size: 13px;
 }
 
+.form-layout {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 32px;
+  align-items: start;
+}
+
 .scheduling-form {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  max-width: 640px;
+}
+
+.upcoming-panel {
+  background: #f5f7ff;
+  border: 1px solid #dfe4ff;
+  border-radius: 10px;
+  padding: 20px;
+  position: sticky;
+  top: 20px;
+}
+
+.upcoming-panel h3 {
+  margin: 0 0 12px 0;
+  color: #0f2043;
+  font-size: 15px;
+}
+
+.upcoming-hint {
+  color: #888;
+  font-size: 13px;
+  margin: 0;
+}
+
+.upcoming-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 480px;
+  overflow-y: auto;
+}
+
+.upcoming-item {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-left: 3px solid #667eea;
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 13px;
+  color: #333;
+  line-height: 1.5;
+}
+
+.upcoming-datetime {
+  font-weight: 600;
+  color: #0f2043;
+}
+
+.upcoming-panel-name {
+  color: #4a5adf;
+  font-weight: 600;
+}
+
+.upcoming-candidate {
+  color: #333;
+}
+
+@media (max-width: 900px) {
+  .form-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .upcoming-panel {
+    position: static;
+  }
 }
 
 .form-group {
