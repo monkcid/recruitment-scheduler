@@ -1,6 +1,5 @@
-import { useState, useEffect } from 'react';
-import SchedulingForm from './components/SchedulingForm';
-import ScheduleList from './components/ScheduleList';
+import { useState, useEffect, useMemo } from 'react';
+import SchedulingForm, { UpcomingPanel, ROLES } from './components/SchedulingForm';
 import './App.css';
 
 // Real Smartsheet column IDs for "Advanced scheduling" sheet
@@ -35,12 +34,115 @@ export function Logo() {
   );
 }
 
+function getCell(row, columnId) {
+  const cell = row.cells?.find(c => c.columnId === columnId);
+  return cell?.displayValue ?? cell?.value ?? '';
+}
+
+function parseDate(dateStr) {
+  if (!dateStr) return null;
+  const d = new Date(dateStr);
+  if (!isNaN(d.getTime())) return d;
+  const m = String(dateStr).match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/);
+  if (m) {
+    const d2 = new Date(`${m[3].length === 2 ? '20' + m[3] : m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`);
+    if (!isNaN(d2.getTime())) return d2;
+  }
+  return null;
+}
+
+// Mini month calendar with today highlighted
+function MiniCalendar() {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = today.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  // Monday-first offset
+  const startOffset = (firstDay.getDay() + 6) % 7;
+
+  const cells = [];
+  for (let i = 0; i < startOffset; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+
+  return (
+    <div className="mini-calendar">
+      <div className="mini-cal-title">
+        {today.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}
+      </div>
+      <div className="mini-cal-grid">
+        {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
+          <div key={'h' + i} className="mini-cal-dow">{d}</div>
+        ))}
+        {cells.map((d, i) => (
+          <div
+            key={i}
+            className={`mini-cal-day${d === today.getDate() ? ' today' : ''}${d === null ? ' empty' : ''}`}
+          >
+            {d || ''}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Quick stats panel
+function QuickStats({ interviews }) {
+  const stats = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+    const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59);
+
+    let thisMonth = 0;
+    let upcoming = 0;
+    let queue = 0;
+
+    interviews.forEach(row => {
+      const candidate = getCell(row, COLUMN_IDS.candidateName);
+      if (!candidate || candidate === 'Candidate Name') return;
+
+      const status = (getCell(row, COLUMN_IDS.status) || '').toLowerCase();
+      if (status === 'in progress') queue++;
+
+      for (let r = 1; r <= 5; r++) {
+        const date = parseDate(getCell(row, COLUMN_IDS.rounds[r].date));
+        if (!date) continue;
+        if (date >= monthStart && date <= monthEnd) thisMonth++;
+        if (date >= today) upcoming++;
+      }
+    });
+
+    return { thisMonth, upcoming, queue };
+  }, [interviews]);
+
+  return (
+    <div className="quick-stats">
+      <h3>⚡ Quick Stats</h3>
+      <div className="stat-card">
+        <span className="stat-number">{stats.thisMonth}</span>
+        <span className="stat-desc">Interviews scheduled this month</span>
+      </div>
+      <div className="stat-card">
+        <span className="stat-number">{stats.upcoming}</span>
+        <span className="stat-desc">Upcoming interviews</span>
+      </div>
+      <div className="stat-card">
+        <span className="stat-number">{stats.queue}</span>
+        <span className="stat-desc">Current scheduling queue</span>
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const [view, setView] = useState('home'); // 'home' or 'form'
   const [interviews, setInterviews] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
+  const [homeRole, setHomeRole] = useState('');
 
   useEffect(() => {
     fetchInterviews();
@@ -73,6 +175,7 @@ function App() {
         { columnId: COLUMN_IDS.candidateName, value: formData.candidateName },
         { columnId: COLUMN_IDS.emailId, value: formData.emailId },
         { columnId: COLUMN_IDS.greenhouse, value: formData.greenhouse },
+        { columnId: COLUMN_IDS.recruiter, value: formData.recruiterName },
         { columnId: COLUMN_IDS.coordinator, value: formData.coordinator },
         { columnId: COLUMN_IDS.role, value: formData.role },
         { columnId: COLUMN_IDS.status, value: 'in progress' },
@@ -124,15 +227,35 @@ function App() {
 
       {view === 'home' ? (
         <div className="home">
-          <button className="btn btn-hero" onClick={() => { setError(null); setView('form'); }}>
-            ＋ Schedule Fresh Interview
-          </button>
+          <div className="hero-row">
+            <button className="btn btn-hero" onClick={() => { setError(null); setView('form'); }}>
+              ＋ Schedule Fresh Interview
+            </button>
+            <MiniCalendar />
+          </div>
 
-          <ScheduleList
-            interviews={interviews}
-            isLoading={loading}
-            onRefresh={fetchInterviews}
-          />
+          <div className="home-panels">
+            <div className="role-explorer">
+              <h3>🔍 Browse Upcoming Interviews</h3>
+              <select
+                className="role-select"
+                value={homeRole}
+                onChange={(e) => setHomeRole(e.target.value)}
+              >
+                <option value="">— Select role —</option>
+                {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+              </select>
+              <UpcomingPanel interviews={interviews} role={homeRole} />
+            </div>
+
+            <QuickStats interviews={interviews} />
+          </div>
+
+          <div className="home-footer">
+            <button onClick={fetchInterviews} className="btn btn-secondary" disabled={loading}>
+              {loading ? '⟳ Refreshing…' : '⟳ Refresh Data'}
+            </button>
+          </div>
         </div>
       ) : (
         <SchedulingForm
