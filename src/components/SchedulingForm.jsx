@@ -64,7 +64,7 @@ function formatDay(date) {
 }
 
 // Calendar-style upcoming interviews panel, grouped by week and day
-function UpcomingPanel({ interviews, role }) {
+export function UpcomingPanel({ interviews, role }) {
   const weeks = useMemo(() => {
     if (!role) return [];
     const today = new Date();
@@ -151,6 +151,7 @@ function UpcomingPanel({ interviews, role }) {
 
 function SchedulingForm({ onSubmit, onCancel, isLoading, interviews = [] }) {
   const [coordinator, setCoordinator] = useState('');
+  const [recruiterName, setRecruiterName] = useState('');
   const [candidateName, setCandidateName] = useState('');
   const [greenhouse, setGreenhouse] = useState('');
   const [emailId, setEmailId] = useState('');
@@ -177,6 +178,7 @@ function SchedulingForm({ onSubmit, onCancel, isLoading, interviews = [] }) {
     e.preventDefault();
 
     if (!coordinator) return alert('Please select a Recruitment Coordinator');
+    if (!recruiterName.trim()) return alert('Please enter the Recruiter Name');
     if (!candidateName.trim()) return alert('Please enter the Candidate Name');
     if (!emailId.trim()) return alert('Please enter the Email ID');
     if (!role) return alert('Please select the Role');
@@ -187,6 +189,7 @@ function SchedulingForm({ onSubmit, onCancel, isLoading, interviews = [] }) {
 
     onSubmit({
       coordinator,
+      recruiterName: recruiterName.trim(),
       candidateName: candidateName.trim(),
       greenhouse: greenhouse.trim(),
       emailId: emailId.trim(),
@@ -213,6 +216,17 @@ function SchedulingForm({ onSubmit, onCancel, isLoading, interviews = [] }) {
               <option value="">— Select coordinator —</option>
               {COORDINATORS.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
+          </div>
+
+          <div className="form-group">
+            <label>Recruiter Name *</label>
+            <input
+              type="text"
+              value={recruiterName}
+              onChange={(e) => setRecruiterName(e.target.value)}
+              placeholder="Enter recruiter name"
+              disabled={isLoading}
+            />
           </div>
 
           <div className="form-group">
