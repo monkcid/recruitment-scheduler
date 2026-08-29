@@ -73,6 +73,48 @@
   gap: 10px;
 }
 
+/* Total candidates banner */
+.total-candidates {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 8px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.total-candidates-number {
+  font-size: 30px;
+  font-weight: 700;
+}
+
+.total-candidates-label {
+  font-size: 13px;
+  opacity: 0.95;
+}
+
+/* Round groups */
+.round-group {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.round-group-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #0f2043;
+  color: white;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 8px 12px;
+}
+
 .week-label {
   background: #0f2043;
   color: white;
@@ -132,9 +174,11 @@
 
 .item-time {
   flex-shrink: 0;
-  min-width: 62px;
+  min-width: 92px;
   font-weight: 600;
   color: #4a5adf;
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .item-detail {

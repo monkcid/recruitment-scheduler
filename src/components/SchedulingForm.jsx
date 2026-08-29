@@ -63,14 +63,15 @@ function formatDay(date) {
   return date.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
 }
 
-// Calendar-style upcoming interviews panel, grouped by week and day
+// Upcoming interviews panel — total candidates, then grouped by round
 export function UpcomingPanel({ interviews, role }) {
-  const weeks = useMemo(() => {
-    if (!role) return [];
+  const data = useMemo(() => {
+    if (!role) return null;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const roleQuery = role.toLowerCase();
     const items = [];
+    const candidates = new Set();
 
     interviews.forEach(row => {
       const rowRole = (getCell(row, COLUMN_IDS.role) || '').toLowerCase();
@@ -86,30 +87,21 @@ export function UpcomingPanel({ interviews, role }) {
         const panel = getCell(row, ids.interviewer);
         if (date && date >= today && panel) {
           items.push({ date, timeStr, panel, candidate, round: r });
+          candidates.add(candidate);
         }
       }
     });
 
-    items.sort((a, b) => a.date - b.date || String(a.timeStr).localeCompare(String(b.timeStr)));
+    // Group by round, sort by date inside each round
+    const rounds = [];
+    for (let r = 1; r <= 5; r++) {
+      const roundItems = items
+        .filter(i => i.round === r)
+        .sort((a, b) => a.date - b.date || String(a.timeStr).localeCompare(String(b.timeStr)));
+      if (roundItems.length > 0) rounds.push({ round: r, items: roundItems });
+    }
 
-    // Group into weeks, then days
-    const weekMap = new Map();
-    items.forEach(item => {
-      const ws = startOfWeek(item.date).getTime();
-      if (!weekMap.has(ws)) weekMap.set(ws, new Map());
-      const dayMap = weekMap.get(ws);
-      const dayKey = item.date.getTime();
-      if (!dayMap.has(dayKey)) dayMap.set(dayKey, []);
-      dayMap.get(dayKey).push(item);
-    });
-
-    return Array.from(weekMap.entries()).map(([ws, dayMap]) => ({
-      label: weekLabel(new Date(ws), today),
-      days: Array.from(dayMap.entries()).map(([dk, dayItems]) => ({
-        date: new Date(dk),
-        items: dayItems,
-      })),
-    }));
+    return { totalCandidates: candidates.size, rounds };
   }, [interviews, role]);
 
   return (
@@ -117,28 +109,33 @@ export function UpcomingPanel({ interviews, role }) {
       <h3>📅 Upcoming Interviews{role ? ` — ${role}` : ''}</h3>
       {!role ? (
         <p className="upcoming-hint">Select a role to see upcoming interviews for it.</p>
-      ) : weeks.length === 0 ? (
+      ) : data.rounds.length === 0 ? (
         <p className="upcoming-hint">No upcoming interviews found for this role.</p>
       ) : (
         <div className="calendar-view">
-          {weeks.map((week, wi) => (
-            <div key={wi} className="calendar-week">
-              <div className="week-label">{week.label}</div>
-              {week.days.map((day, di) => (
-                <div key={di} className="calendar-day">
-                  <div className="day-header">
-                    <span className="day-date">{formatDay(day.date)}</span>
-                    <span className="day-count">{day.items.length}</span>
-                  </div>
-                  {day.items.map((item, ii) => (
-                    <div key={ii} className="calendar-item">
-                      <span className="item-time">{item.timeStr || 'Time TBD'}</span>
-                      <span className="item-detail">
-                        <strong>{item.panel}</strong> : {item.candidate}
-                        <span className="item-round"> · R{item.round}</span>
-                      </span>
-                    </div>
-                  ))}
+          <div className="total-candidates">
+            <span className="total-candidates-number">{data.totalCandidates}</span>
+            <span className="total-candidates-label">Total candidates scheduled</span>
+          </div>
+
+          {data.rounds.map(({ round, items }) => (
+            <div key={round} className="round-group">
+              <div className="round-group-header">
+                <span>Round {round}</span>
+                <span className="day-count">{items.length}</span>
+              </div>
+              {items.map((item, ii) => (
+                <div key={ii} className="calendar-item">
+                  <span className="item-time">
+                    {formatDay(item.date)}
+                    <br />
+                    {item.timeStr || 'Time TBD'}
+                  </span>
+                  <span className="item-detail">
+                    <strong>{item.candidate}</strong>
+                    <br />
+                    Panel: {item.panel}
+                  </span>
                 </div>
               ))}
             </div>
