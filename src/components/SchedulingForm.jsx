@@ -5,6 +5,21 @@ import './SchedulingForm.css';
 const COORDINATORS = ['Priti', 'Meghana'];
 const DURATIONS = ['30 minutes', '45 minutes', '60 minutes', '90 minutes'];
 
+// Must match the Role dropdown options in Smartsheet
+export const ROLES = [
+  'Senior Software Engineer',
+  'Software Engineer II',
+  'Product Manager',
+  'UX Designer',
+  'Data Analyst',
+  'QA Engineer',
+  'DevOps Engineer',
+  'Engineering Manager',
+  'Technical Writer',
+  'Customer Success Manager',
+  'AI/ML Engineer',
+];
+
 function getCell(row, columnId) {
   const cell = row.cells?.find(c => c.columnId === columnId);
   return cell?.displayValue ?? cell?.value ?? '';
@@ -15,7 +30,6 @@ function parseDate(dateStr) {
   if (!dateStr) return null;
   const d = new Date(dateStr);
   if (!isNaN(d.getTime())) return d;
-  // Try DD/MM/YYYY or DD-MM-YYYY
   const m = String(dateStr).match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/);
   if (m) {
     const d2 = new Date(`${m[3].length === 2 ? '20' + m[3] : m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`);
@@ -24,66 +38,112 @@ function parseDate(dateStr) {
   return null;
 }
 
-// Upcoming interviews panel — filters sheet rows by role, from today onward
+function startOfWeek(date) {
+  // Monday as start of week
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  const day = d.getDay(); // 0=Sun
+  const diff = day === 0 ? -6 : 1 - day;
+  d.setDate(d.getDate() + diff);
+  return d;
+}
+
+function weekLabel(weekStart, today) {
+  const thisWeek = startOfWeek(today);
+  const diffWeeks = Math.round((weekStart - thisWeek) / (7 * 24 * 3600 * 1000));
+  if (diffWeeks === 0) return 'This Week';
+  if (diffWeeks === 1) return 'Next Week';
+  const end = new Date(weekStart);
+  end.setDate(end.getDate() + 6);
+  const fmt = (d) => d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+  return `${fmt(weekStart)} – ${fmt(end)}`;
+}
+
+function formatDay(date) {
+  return date.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
+}
+
+// Calendar-style upcoming interviews panel, grouped by week and day
 function UpcomingPanel({ interviews, role }) {
-  const upcoming = useMemo(() => {
-    if (!role.trim()) return [];
+  const weeks = useMemo(() => {
+    if (!role) return [];
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const roleQuery = role.trim().toLowerCase();
+    const roleQuery = role.toLowerCase();
     const items = [];
 
     interviews.forEach(row => {
       const rowRole = (getCell(row, COLUMN_IDS.role) || '').toLowerCase();
-      if (!rowRole || !rowRole.includes(roleQuery)) return;
+      if (rowRole !== roleQuery) return;
 
       const candidate = getCell(row, COLUMN_IDS.candidateName);
       if (!candidate || candidate === 'Candidate Name') return;
 
       for (let r = 1; r <= 5; r++) {
         const ids = COLUMN_IDS.rounds[r];
-        const dateStr = getCell(row, ids.date);
+        const date = parseDate(getCell(row, ids.date));
         const timeStr = getCell(row, ids.time);
         const panel = getCell(row, ids.interviewer);
-        const date = parseDate(dateStr);
         if (date && date >= today && panel) {
-          items.push({ date, dateStr, timeStr, panel, candidate, round: r });
+          items.push({ date, timeStr, panel, candidate, round: r });
         }
       }
     });
 
-    items.sort((a, b) => a.date - b.date);
-    return items;
-  }, [interviews, role]);
+    items.sort((a, b) => a.date - b.date || String(a.timeStr).localeCompare(String(b.timeStr)));
 
-  if (!role.trim()) {
-    return (
-      <div className="upcoming-panel">
-        <h3>Upcoming Interviews</h3>
-        <p className="upcoming-hint">Type a role to see upcoming interviews scheduled for it.</p>
-      </div>
-    );
-  }
+    // Group into weeks, then days
+    const weekMap = new Map();
+    items.forEach(item => {
+      const ws = startOfWeek(item.date).getTime();
+      if (!weekMap.has(ws)) weekMap.set(ws, new Map());
+      const dayMap = weekMap.get(ws);
+      const dayKey = item.date.getTime();
+      if (!dayMap.has(dayKey)) dayMap.set(dayKey, []);
+      dayMap.get(dayKey).push(item);
+    });
+
+    return Array.from(weekMap.entries()).map(([ws, dayMap]) => ({
+      label: weekLabel(new Date(ws), today),
+      days: Array.from(dayMap.entries()).map(([dk, dayItems]) => ({
+        date: new Date(dk),
+        items: dayItems,
+      })),
+    }));
+  }, [interviews, role]);
 
   return (
     <div className="upcoming-panel">
-      <h3>Upcoming Interviews — {role}</h3>
-      {upcoming.length === 0 ? (
+      <h3>📅 Upcoming Interviews{role ? ` — ${role}` : ''}</h3>
+      {!role ? (
+        <p className="upcoming-hint">Select a role to see upcoming interviews for it.</p>
+      ) : weeks.length === 0 ? (
         <p className="upcoming-hint">No upcoming interviews found for this role.</p>
       ) : (
-        <ul className="upcoming-list">
-          {upcoming.map((item, idx) => (
-            <li key={idx} className="upcoming-item">
-              <span className="upcoming-datetime">
-                {item.dateStr}{item.timeStr ? ` ${item.timeStr}` : ''}
-              </span>
-              {' — '}
-              <span className="upcoming-panel-name">{item.panel}</span>
-              {' : '}
-              <span className="upcoming-candidate">{item.candidate}</span>
-            </li>
+        <div className="calendar-view">
+          {weeks.map((week, wi) => (
+            <div key={wi} className="calendar-week">
+              <div className="week-label">{week.label}</div>
+              {week.days.map((day, di) => (
+                <div key={di} className="calendar-day">
+                  <div className="day-header">
+                    <span className="day-date">{formatDay(day.date)}</span>
+                    <span className="day-count">{day.items.length}</span>
+                  </div>
+                  {day.items.map((item, ii) => (
+                    <div key={ii} className="calendar-item">
+                      <span className="item-time">{item.timeStr || 'Time TBD'}</span>
+                      <span className="item-detail">
+                        <strong>{item.panel}</strong> : {item.candidate}
+                        <span className="item-round"> · R{item.round}</span>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
           ))}
-        </ul>
+        </div>
       )}
     </div>
   );
@@ -119,7 +179,7 @@ function SchedulingForm({ onSubmit, onCancel, isLoading, interviews = [] }) {
     if (!coordinator) return alert('Please select a Recruitment Coordinator');
     if (!candidateName.trim()) return alert('Please enter the Candidate Name');
     if (!emailId.trim()) return alert('Please enter the Email ID');
-    if (!role.trim()) return alert('Please enter the Role');
+    if (!role) return alert('Please select the Role');
     for (let i = 0; i < rounds.length; i++) {
       if (!rounds[i].interviewer.trim()) return alert(`Please enter the interviewer for Round ${i + 1}`);
       if (!rounds[i].duration) return alert(`Please select the duration for Round ${i + 1}`);
@@ -130,7 +190,7 @@ function SchedulingForm({ onSubmit, onCancel, isLoading, interviews = [] }) {
       candidateName: candidateName.trim(),
       greenhouse: greenhouse.trim(),
       emailId: emailId.trim(),
-      role: role.trim(),
+      role,
       rounds,
       specialRequests: specialRequests.trim(),
     });
@@ -190,13 +250,10 @@ function SchedulingForm({ onSubmit, onCancel, isLoading, interviews = [] }) {
 
           <div className="form-group">
             <label>Role *</label>
-            <input
-              type="text"
-              value={role}
-              onChange={(e) => setRole(e.target.value)}
-              placeholder="e.g. Senior Software Engineer"
-              disabled={isLoading}
-            />
+            <select value={role} onChange={(e) => setRole(e.target.value)} disabled={isLoading}>
+              <option value="">— Select role —</option>
+              {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+            </select>
           </div>
 
           <div className="form-group">
