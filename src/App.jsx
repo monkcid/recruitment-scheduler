@@ -3,42 +3,45 @@ import SchedulingForm from './components/SchedulingForm';
 import ScheduleList from './components/ScheduleList';
 import './App.css';
 
-// Column index mapping for your "Advanced scheduling" sheet
-const COLUMNS = {
-  candidateName: 0,
-  emailId: 1,
-  greenhouse: 2,
-  recruiter: 3,
-  coordinator: 4,
-  role: 5,
-  // Rounds (6-20 for Round 1-5: interviewer, date, time each)
-  round1Interviewer: 6,
-  round1Date: 7,
-  round1Time: 8,
-  round2Interviewer: 9,
-  round2Date: 10,
-  round2Time: 11,
-  round3Interviewer: 12,
-  round3Date: 13,
-  round3Time: 14,
-  round4Interviewer: 15,
-  round4Date: 16,
-  round4Time: 17,
-  round5Interviewer: 18,
-  round5Date: 19,
-  round5Time: 20,
-  rescheduleCounter: 21,
-  status: 22,
+// Real Smartsheet column IDs for "Advanced scheduling" sheet
+export const COLUMN_IDS = {
+  candidateName: 1319526027005828,
+  emailId: 5823125654376324,
+  greenhouse: 3571325840691076,
+  recruiter: 8074925468061572,
+  coordinator: 2747206844845956, // RC column
+  role: 4999006658531204,
+  rounds: {
+    1: { interviewer: 495407031160708, duration: 4717531681820548 },
+    2: { interviewer: 4154581728399236, duration: 213932054450052 },
+    3: { interviewer: 1902781914713988, duration: 8798918844125060 },
+    4: { interviewer: 5280481635241860, duration: 4295319216754564 },
+    5: { interviewer: 3591631774977924, duration: 6547119030439812 },
+  },
+  specialRequests: 2043519403069316,
+  status: 2465731868135300,
 };
 
+// Smartsheet logo (inline SVG)
+export function Logo() {
+  return (
+    <svg viewBox="0 0 100 100" className="logo" xmlns="http://www.w3.org/2000/svg">
+      <rect width="100" height="100" fill="#0f2043" rx="8" />
+      <path
+        d="M30 30 h40 L45 62 c-3 5 -7 4 -9 0 l-6 -12 c4 -3 8 -2 10 1 l3 5 L60 34 H30 c-2 8 0 25 2 33 10 -2 22 -8 30 -16 l4 4 c-9 10 -23 17 -36 19 -4 -10 -5 -30 0 -44z"
+        fill="#ffffff"
+      />
+    </svg>
+  );
+}
+
 function App() {
+  const [view, setView] = useState('home'); // 'home' or 'form'
   const [interviews, setInterviews] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [filterStatus, setFilterStatus] = useState('all');
   const [successMessage, setSuccessMessage] = useState('');
 
-  // Fetch sheet data on mount
   useEffect(() => {
     fetchInterviews();
   }, []);
@@ -51,7 +54,6 @@ function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'getSheet' }),
       });
-
       if (!response.ok) throw new Error('Failed to fetch data');
       const data = await response.json();
       setInterviews(data.rows || []);
@@ -64,95 +66,76 @@ function App() {
     }
   };
 
-  const handleScheduleInterview = async (formData) => {
+  const handleSubmit = async (formData) => {
     setLoading(true);
     try {
-      const { candidateName, round, recruiterName, interviewerName, date, time } = formData;
-
-      // Map round to correct column indices
-      const roundMap = {
-        1: { interviewer: COLUMNS.round1Interviewer, date: COLUMNS.round1Date, time: COLUMNS.round1Time },
-        2: { interviewer: COLUMNS.round2Interviewer, date: COLUMNS.round2Date, time: COLUMNS.round2Time },
-        3: { interviewer: COLUMNS.round3Interviewer, date: COLUMNS.round3Date, time: COLUMNS.round3Time },
-        4: { interviewer: COLUMNS.round4Interviewer, date: COLUMNS.round4Date, time: COLUMNS.round4Time },
-        5: { interviewer: COLUMNS.round5Interviewer, date: COLUMNS.round5Date, time: COLUMNS.round5Time },
-      };
-
-      const cols = roundMap[round];
-
-      // Create cells array
       const cells = [
-        { columnIndex: COLUMNS.candidateName, value: candidateName },
-        { columnIndex: COLUMNS.recruiter, value: recruiterName },
-        { columnIndex: cols.interviewer, value: interviewerName },
-        { columnIndex: cols.date, value: date },
-        { columnIndex: cols.time, value: time },
-        { columnIndex: COLUMNS.status, value: 'scheduled' },
+        { columnId: COLUMN_IDS.candidateName, value: formData.candidateName },
+        { columnId: COLUMN_IDS.emailId, value: formData.emailId },
+        { columnId: COLUMN_IDS.greenhouse, value: formData.greenhouse },
+        { columnId: COLUMN_IDS.coordinator, value: formData.coordinator },
+        { columnId: COLUMN_IDS.status, value: 'in progress' },
       ];
 
-      // Add row via backend
+      if (formData.specialRequests) {
+        cells.push({ columnId: COLUMN_IDS.specialRequests, value: formData.specialRequests });
+      }
+
+      formData.rounds.forEach((round, i) => {
+        const ids = COLUMN_IDS.rounds[i + 1];
+        if (round.interviewer) cells.push({ columnId: ids.interviewer, value: round.interviewer });
+        if (round.duration) cells.push({ columnId: ids.duration, value: round.duration });
+      });
+
       const response = await fetch('/api/smartsheet', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'addRow',
-          data: { cells },
-        }),
+        body: JSON.stringify({ action: 'addRow', data: { cells } }),
       });
 
-      if (!response.ok) throw new Error('Failed to schedule');
+      if (!response.ok) throw new Error('Failed to submit');
 
-      setSuccessMessage('Interview scheduled successfully!');
-      setTimeout(() => setSuccessMessage(''), 3000);
-
-      // Refresh list
+      setSuccessMessage(`Interview request for ${formData.candidateName} submitted successfully!`);
+      setTimeout(() => setSuccessMessage(''), 5000);
+      setView('home');
       await fetchInterviews();
     } catch (err) {
-      setError('Failed to schedule interview');
+      setError('Failed to submit. Please try again.');
       console.error(err);
     } finally {
       setLoading(false);
     }
   };
 
-  const filteredInterviews = filterStatus === 'all'
-    ? interviews
-    : interviews.filter(row => {
-        const statusCell = row.cells?.[COLUMNS.status];
-        return statusCell?.value === filterStatus;
-      });
-
   return (
     <div className="container">
-      <div className="header">
-        <div>
-          <h1>Recruitment Scheduler</h1>
-          <p>Advanced Scheduling Tracker</p>
-        </div>
-      </div>
+      <header className="header">
+        <Logo />
+        <h1>Interview Scheduling - Smartsheet India</h1>
+      </header>
 
-      <div className="content">
-        <div className="form-section">
-          {error && <div className="error-message">{error}</div>}
-          {successMessage && <div className="success-message">{successMessage}</div>}
+      {error && <div className="error-message">{error}</div>}
+      {successMessage && <div className="success-message">{successMessage}</div>}
 
-          <SchedulingForm
-            onSubmit={handleScheduleInterview}
-            isLoading={loading}
-          />
-        </div>
+      {view === 'home' ? (
+        <div className="home">
+          <button className="btn btn-hero" onClick={() => { setError(null); setView('form'); }}>
+            ＋ Schedule Fresh Interview
+          </button>
 
-        <div className="list-section">
           <ScheduleList
-            interviews={filteredInterviews}
+            interviews={interviews}
             isLoading={loading}
             onRefresh={fetchInterviews}
-            columnIndices={COLUMNS}
-            filterStatus={filterStatus}
-            setFilterStatus={setFilterStatus}
           />
         </div>
-      </div>
+      ) : (
+        <SchedulingForm
+          onSubmit={handleSubmit}
+          onCancel={() => setView('home')}
+          isLoading={loading}
+        />
+      )}
     </div>
   );
 }
