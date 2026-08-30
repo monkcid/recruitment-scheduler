@@ -59,13 +59,16 @@ export function UpcomingPanel({ interviews, role }) {
       const candidate = getCell(row, COLUMN_IDS.candidateName);
       if (!candidate || candidate === 'Candidate Name') return;
 
+      const recruiter = getCell(row, COLUMN_IDS.recruiter);
+      const priority = getCell(row, COLUMN_IDS.priority);
+
       for (let r = 1; r <= 5; r++) {
         const ids = COLUMN_IDS.rounds[r];
         const date = parseDate(getCell(row, ids.date));
         const timeStr = getCell(row, ids.time);
         const panel = getCell(row, ids.interviewer);
         if (date && date >= today && panel) {
-          items.push({ date, timeStr, panel, candidate, round: r });
+          items.push({ date, timeStr, panel, candidate, round: r, recruiter, priority });
           candidates.add(candidate);
         }
       }
@@ -114,6 +117,14 @@ export function UpcomingPanel({ interviews, role }) {
                       <strong>{item.candidate}</strong>
                       <br />
                       Panel: {item.panel}
+                      {item.recruiter && (
+                        <>
+                          <br />
+                          <span className="item-recruiter">
+                            Recruiter: {item.recruiter}{item.priority ? ` (${item.priority})` : ''}
+                          </span>
+                        </>
+                      )}
                     </span>
                   </div>
                 ))}
