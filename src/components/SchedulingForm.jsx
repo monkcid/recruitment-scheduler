@@ -1,9 +1,10 @@
 import { useState, useMemo } from 'react';
-import { COLUMN_IDS } from '../App';
+import { COLUMN_IDS, AutocompleteInput } from '../App';
 import './SchedulingForm.css';
 
 const COORDINATORS = ['Priti', 'Meghana'];
 const DURATIONS = ['30 minutes', '45 minutes', '60 minutes', '90 minutes'];
+const PRIORITIES = ['High Priority', 'Regular', 'Low'];
 
 // Must match the Role dropdown options in Smartsheet
 export const ROLES = [
@@ -25,7 +26,6 @@ function getCell(row, columnId) {
   return cell?.displayValue ?? cell?.value ?? '';
 }
 
-// Best-effort date parser for free-text date cells
 function parseDate(dateStr) {
   if (!dateStr) return null;
   const d = new Date(dateStr);
@@ -36,27 +36,6 @@ function parseDate(dateStr) {
     if (!isNaN(d2.getTime())) return d2;
   }
   return null;
-}
-
-function startOfWeek(date) {
-  // Monday as start of week
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  const day = d.getDay(); // 0=Sun
-  const diff = day === 0 ? -6 : 1 - day;
-  d.setDate(d.getDate() + diff);
-  return d;
-}
-
-function weekLabel(weekStart, today) {
-  const thisWeek = startOfWeek(today);
-  const diffWeeks = Math.round((weekStart - thisWeek) / (7 * 24 * 3600 * 1000));
-  if (diffWeeks === 0) return 'This Week';
-  if (diffWeeks === 1) return 'Next Week';
-  const end = new Date(weekStart);
-  end.setDate(end.getDate() + 6);
-  const fmt = (d) => d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
-  return `${fmt(weekStart)} – ${fmt(end)}`;
 }
 
 function formatDay(date) {
@@ -92,7 +71,6 @@ export function UpcomingPanel({ interviews, role }) {
       }
     });
 
-    // Group by round, sort by date inside each round
     const rounds = [];
     for (let r = 1; r <= 5; r++) {
       const roundItems = items
@@ -155,6 +133,7 @@ function SchedulingForm({ onSubmit, onCancel, isLoading, interviews = [] }) {
   const [greenhouse, setGreenhouse] = useState('');
   const [emailId, setEmailId] = useState('');
   const [role, setRole] = useState('');
+  const [priority, setPriority] = useState('Regular');
   const [numInterviews, setNumInterviews] = useState(1);
   const [rounds, setRounds] = useState([{ interviewer: '', duration: '' }]);
   const [specialRequests, setSpecialRequests] = useState('');
@@ -181,6 +160,7 @@ function SchedulingForm({ onSubmit, onCancel, isLoading, interviews = [] }) {
     if (!candidateName.trim()) return alert('Please enter the Candidate Name');
     if (!emailId.trim()) return alert('Please enter the Email ID');
     if (!role) return alert('Please select the Role');
+    if (!priority) return alert('Please select the Priority');
     for (let i = 0; i < rounds.length; i++) {
       if (!rounds[i].interviewer.trim()) return alert(`Please enter the interviewer for Round ${i + 1}`);
       if (!rounds[i].duration) return alert(`Please select the duration for Round ${i + 1}`);
@@ -193,6 +173,7 @@ function SchedulingForm({ onSubmit, onCancel, isLoading, interviews = [] }) {
       greenhouse: greenhouse.trim(),
       emailId: emailId.trim(),
       role,
+      priority,
       rounds,
       specialRequests: specialRequests.trim(),
     });
@@ -263,9 +244,18 @@ function SchedulingForm({ onSubmit, onCancel, isLoading, interviews = [] }) {
 
           <div className="form-group">
             <label>Role *</label>
-            <select value={role} onChange={(e) => setRole(e.target.value)} disabled={isLoading}>
-              <option value="">— Select role —</option>
-              {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+            <AutocompleteInput
+              options={ROLES}
+              value={role}
+              onChange={setRole}
+              placeholder="Type any part of a role…"
+            />
+          </div>
+
+          <div className="form-group">
+            <label>Priority *</label>
+            <select value={priority} onChange={(e) => setPriority(e.target.value)} disabled={isLoading}>
+              {PRIORITIES.map(p => <option key={p} value={p}>{p}</option>)}
             </select>
           </div>
 
