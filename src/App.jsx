@@ -102,6 +102,7 @@ const LOG_COLS = {
   panel: 6449860435545988,
   round: 4198060621860740,
   reason: 8701660249231236,
+  rescheduledBy: 2371420426112900, // Candidate / Panel / Other
   reportedBy: 538885924622212,
 };
 
@@ -118,37 +119,58 @@ function RescheduleCorner({ logs }) {
         candidate: getCell(row, LOG_COLS.candidate),
         panel: getCell(row, LOG_COLS.panel),
         reason: getCell(row, LOG_COLS.reason),
+        rescheduledBy: getCell(row, LOG_COLS.rescheduledBy) || 'Other',
         loggedAt: parseDate(String(getCell(row, LOG_COLS.loggedAt)).slice(0, 10)),
       }))
       .filter(e => e.type === 'Reschedule' &&
         e.loggedAt && e.loggedAt >= monthStart && e.loggedAt <= monthEnd);
 
+    // Candidate-initiated reschedules, counted per candidate
     const byCandidate = {};
+    // Panel-initiated reschedules, reasons listed per panel
     const byPanel = {};
+    let candidateCount = 0;
+    let panelCount = 0;
+
     events.forEach(e => {
-      if (e.candidate) byCandidate[e.candidate] = (byCandidate[e.candidate] || 0) + 1;
-      if (e.panel) {
-        if (!byPanel[e.panel]) byPanel[e.panel] = [];
-        byPanel[e.panel].push(e.reason || '(no reason given)');
+      if (e.rescheduledBy === 'Candidate') {
+        candidateCount++;
+        if (e.candidate) byCandidate[e.candidate] = (byCandidate[e.candidate] || 0) + 1;
+      } else if (e.rescheduledBy === 'Panel') {
+        panelCount++;
+        if (e.panel) {
+          if (!byPanel[e.panel]) byPanel[e.panel] = [];
+          byPanel[e.panel].push(e.reason || '(no reason given)');
+        }
       }
     });
 
-    return { total: events.length, byCandidate, byPanel };
+    return { total: events.length, candidateCount, panelCount, byCandidate, byPanel };
   }, [logs]);
 
   return (
     <div className="reschedule-corner">
       <h3>🔄 Reschedule Corner <span className="rc-month">({new Date().toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })})</span></h3>
-      <div className="rc-total">
-        <span className="stat-number">{stats.total}</span>
-        <span className="stat-desc">Total reschedules</span>
+      <div className="rc-totals-row">
+        <div className="rc-total">
+          <span className="stat-number">{stats.total}</span>
+          <span className="stat-desc">Total reschedules</span>
+        </div>
+        <div className="rc-total">
+          <span className="stat-number">{stats.candidateCount}</span>
+          <span className="stat-desc">Candidate-initiated</span>
+        </div>
+        <div className="rc-total">
+          <span className="stat-number">{stats.panelCount}</span>
+          <span className="stat-desc">Panel-initiated</span>
+        </div>
       </div>
 
       <div className="rc-columns">
         <div className="rc-block">
-          <h4>By Candidate</h4>
+          <h4>Candidate Reschedules</h4>
           {Object.keys(stats.byCandidate).length === 0 ? (
-            <p className="rc-empty">No reschedules yet</p>
+            <p className="rc-empty">No candidate-initiated reschedules this month</p>
           ) : (
             <ul>
               {Object.entries(stats.byCandidate)
@@ -161,9 +183,9 @@ function RescheduleCorner({ logs }) {
         </div>
 
         <div className="rc-block">
-          <h4>By Panel (with reasons)</h4>
+          <h4>Panel Reschedules (with reasons)</h4>
           {Object.keys(stats.byPanel).length === 0 ? (
-            <p className="rc-empty">No reschedules yet</p>
+            <p className="rc-empty">No panel-initiated reschedules this month</p>
           ) : (
             <ul>
               {Object.entries(stats.byPanel).map(([panel, reasons]) => (
