@@ -43,15 +43,28 @@ function formatDay(date) {
   return date.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
 }
 
-// Upcoming interviews panel — total candidates, then grouped by round
+// Combine a round's date + time string into a full datetime for completion checks
+function roundDateTime(date, timeStr) {
+  const dt = new Date(date);
+  const m = String(timeStr || '').match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (m) {
+    let h = parseInt(m[1], 10) % 12;
+    if (m[3].toUpperCase() === 'PM') h += 12;
+    dt.setHours(h, parseInt(m[2], 10), 0, 0);
+  } else {
+    dt.setHours(23, 59, 59, 999);
+  }
+  return dt;
+}
+
+// Upcoming interviews panel — candidate-centric cards with per-round status.
+// A candidate disappears from this view once ALL their requested rounds are completed.
 export function UpcomingPanel({ interviews, role }) {
   const data = useMemo(() => {
     if (!role) return null;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const now = new Date();
     const roleQuery = role.toLowerCase();
-    const items = [];
-    const candidates = new Set();
+    const cards = [];
 
     interviews.forEach(row => {
       const rowRole = (getCell(row, COLUMN_IDS.role) || '').toLowerCase();
@@ -60,30 +73,48 @@ export function UpcomingPanel({ interviews, role }) {
       const candidate = getCell(row, COLUMN_IDS.candidateName);
       if (!candidate || candidate === 'Candidate Name') return;
 
-      const recruiter = getCell(row, COLUMN_IDS.recruiter);
-      const priority = getCell(row, COLUMN_IDS.priority);
+      const rounds = [];
+      let hasDatedRound = false;
+      let allCompleted = true;
 
       for (let r = 1; r <= 5; r++) {
         const ids = COLUMN_IDS.rounds[r];
-        const date = parseDate(getCell(row, ids.date));
-        const timeStr = getCell(row, ids.time);
         const panel = getCell(row, ids.interviewer);
-        if (date && date >= today && panel) {
-          items.push({ date, timeStr, panel, candidate, round: r, recruiter, priority });
-          candidates.add(candidate);
+        if (!panel) continue; // round not requested
+
+        const dateStr = getCell(row, ids.date);
+        const timeStr = getCell(row, ids.time);
+        const duration = getCell(row, ids.duration);
+        const date = parseDate(dateStr);
+
+        let status = 'Pending';
+        if (date) {
+          hasDatedRound = true;
+          status = roundDateTime(date, timeStr) <= now ? 'Completed' : 'Scheduled';
         }
+        if (status !== 'Completed') allCompleted = false;
+
+        rounds.push({ round: r, panel, date, timeStr, duration, status });
       }
+
+      if (rounds.length === 0) return;
+      if (!hasDatedRound) return;      // nothing booked yet → lives in the Requested pill
+      if (allCompleted) return;        // every requested round done → discard from this view
+
+      cards.push({
+        candidate,
+        email: getCell(row, COLUMN_IDS.emailId),
+        role: getCell(row, COLUMN_IDS.role),
+        recruiter: getCell(row, COLUMN_IDS.recruiter),
+        priority: getCell(row, COLUMN_IDS.priority),
+        rc: getCell(row, COLUMN_IDS.coordinator),
+        rounds,
+        nextDate: rounds.filter(x => x.status === 'Scheduled' && x.date).sort((a, b) => a.date - b.date)[0]?.date || new Date(8640000000000000),
+      });
     });
 
-    const rounds = [];
-    for (let r = 1; r <= 5; r++) {
-      const roundItems = items
-        .filter(i => i.round === r)
-        .sort((a, b) => a.date - b.date || String(a.timeStr).localeCompare(String(b.timeStr)));
-      if (roundItems.length > 0) rounds.push({ round: r, items: roundItems });
-    }
-
-    return { totalCandidates: candidates.size, rounds };
+    cards.sort((a, b) => a.nextDate - b.nextDate);
+    return { cards };
   }, [interviews, role]);
 
   return (
@@ -91,42 +122,41 @@ export function UpcomingPanel({ interviews, role }) {
       <h3>📅 Upcoming Interviews{role ? ` — ${role}` : ''}</h3>
       {!role ? (
         <p className="upcoming-hint">Select a role to see upcoming interviews for it.</p>
-      ) : data.rounds.length === 0 ? (
-        <p className="upcoming-hint">No upcoming interviews found for this role.</p>
+      ) : data.cards.length === 0 ? (
+        <p className="upcoming-hint">No candidates with upcoming interviews for this role.</p>
       ) : (
         <div className="calendar-view">
           <div className="total-candidates">
-            <span className="total-candidates-number">{data.totalCandidates}</span>
-            <span className="total-candidates-label">Total candidates scheduled</span>
+            <span className="total-candidates-number">{data.cards.length}</span>
+            <span className="total-candidates-label">Candidates in play</span>
           </div>
 
-          {data.rounds.map(({ round, items }) => (
-            <div key={round} className="round-group">
-              <div className="round-group-header">
-                <span>Round {round}</span>
-                <span className="day-count">{items.length}</span>
+          {data.cards.map((c, ci) => (
+            <div key={ci} className="candidate-card">
+              <div className="cc-header">
+                <div className="cc-identity">
+                  <span className="cc-avatar">{c.candidate.trim().charAt(0).toUpperCase()}</span>
+                  <div>
+                    <strong className="cc-name">{c.candidate}</strong>
+                    <div className="cc-sub">{c.role}{c.email ? ` · ${c.email}` : ''}</div>
+                  </div>
+                </div>
+                <div className="cc-meta">
+                  <div><span className="cc-label">Recruiter</span> {c.recruiter || '—'}{c.priority ? ` (${c.priority})` : ''}</div>
+                  <div><span className="cc-label">RC</span> {c.rc || '—'}</div>
+                </div>
               </div>
-              <div className={`round-group-items${items.length > 3 ? ' scrollable' : ''}`}>
-                {items.map((item, ii) => (
-                  <div key={ii} className="calendar-item">
-                    <span className="item-time">
-                      {formatDay(item.date)}
-                      <br />
-                      {item.timeStr || 'Time TBD'}
+
+              <div className="cc-rounds">
+                {c.rounds.map((r, ri) => (
+                  <div key={ri} className="cc-round">
+                    <span className="cc-round-num">Round {r.round}</span>
+                    <span className="cc-round-panel">{r.panel}</span>
+                    <span className="cc-round-when">
+                      {r.date ? `${formatDay(r.date)}${r.timeStr ? ` · ${r.timeStr}` : ''}` : 'Not booked yet'}
+                      {r.duration ? ` · ${r.duration}` : ''}
                     </span>
-                    <span className="item-detail">
-                      <strong>{item.candidate}</strong>
-                      <br />
-                      Panel: {item.panel}
-                      {item.recruiter && (
-                        <>
-                          <br />
-                          <span className="item-recruiter">
-                            Recruiter: {item.recruiter}{item.priority ? ` (${item.priority})` : ''}
-                          </span>
-                        </>
-                      )}
-                    </span>
+                    <span className={`cc-status cc-status-${r.status.toLowerCase()}`}>{r.status}</span>
                   </div>
                 ))}
               </div>

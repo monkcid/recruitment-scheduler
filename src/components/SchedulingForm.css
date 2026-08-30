@@ -94,6 +94,144 @@
   opacity: 0.95;
 }
 
+/* Candidate-centric cards */
+.candidate-card {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.cc-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 14px 16px;
+  background: #f7f9ff;
+  border-bottom: 1px solid #e8ecfa;
+  flex-wrap: wrap;
+}
+
+.cc-identity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cc-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  font-weight: 700;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.cc-name {
+  color: #0f2043;
+  font-size: 15px;
+}
+
+.cc-sub {
+  font-size: 12px;
+  color: #777;
+  margin-top: 2px;
+}
+
+.cc-meta {
+  font-size: 12.5px;
+  color: #333;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  text-align: right;
+}
+
+.cc-label {
+  color: #999;
+  font-size: 11px;
+  text-transform: uppercase;
+  font-weight: 700;
+  margin-right: 4px;
+}
+
+.cc-rounds {
+  display: flex;
+  flex-direction: column;
+}
+
+.cc-round {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 16px;
+  border-bottom: 1px solid #f2f2f2;
+  font-size: 13px;
+}
+
+.cc-round:last-child {
+  border-bottom: none;
+}
+
+.cc-round-num {
+  font-weight: 700;
+  color: #0f2043;
+  min-width: 62px;
+}
+
+.cc-round-panel {
+  color: #333;
+  min-width: 120px;
+}
+
+.cc-round-when {
+  color: #667;
+  flex: 1;
+  font-size: 12.5px;
+}
+
+.cc-status {
+  border-radius: 12px;
+  padding: 3px 12px;
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+.cc-status-pending {
+  background: #fff3e0;
+  color: #e65100;
+}
+
+.cc-status-scheduled {
+  background: #e3f2fd;
+  color: #1976d2;
+}
+
+.cc-status-completed {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+@media (max-width: 768px) {
+  .cc-header {
+    flex-direction: column;
+  }
+
+  .cc-meta {
+    text-align: left;
+  }
+
+  .cc-round {
+    flex-wrap: wrap;
+  }
+}
+
 /* Round groups */
 .round-group {
   background: white;
