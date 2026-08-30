@@ -39,6 +39,13 @@ function getCell(row, columnId) {
   return cell?.displayValue ?? cell?.value ?? '';
 }
 
+// Section parent rows in the sheet — never treat these as candidates
+const SECTION_NAMES = ['📋 PENDING', '📅 SCHEDULED', '✅ COMPLETED'];
+export function isSectionRow(row) {
+  const name = getCell(row, COLUMN_IDS.candidateName);
+  return SECTION_NAMES.includes(name);
+}
+
 function parseDate(dateStr) {
   if (!dateStr) return null;
   const d = new Date(dateStr);
@@ -373,10 +380,10 @@ function QuickStats({ interviews }) {
 
     interviews.forEach(row => {
       const candidate = getCell(row, COLUMN_IDS.candidateName);
-      if (!candidate || candidate === 'Candidate Name') return;
+      if (!candidate || candidate === 'Candidate Name' || isSectionRow(row)) return;
 
       const status = (getCell(row, COLUMN_IDS.status) || '').toLowerCase();
-      if (status === 'in progress') queue++;
+      if (status === 'pending') queue++;
 
       for (let r = 1; r <= 5; r++) {
         const date = parseDate(getCell(row, COLUMN_IDS.rounds[r].date));
@@ -467,7 +474,7 @@ function App() {
         { columnId: COLUMN_IDS.recruiter, value: formData.recruiterName },
         { columnId: COLUMN_IDS.coordinator, value: formData.coordinator },
         { columnId: COLUMN_IDS.role, value: formData.role },
-        { columnId: COLUMN_IDS.status, value: 'in progress' },
+        { columnId: COLUMN_IDS.status, value: 'pending' },
       ];
 
       if (formData.specialRequests) {
