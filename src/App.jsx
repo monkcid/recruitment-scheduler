@@ -572,9 +572,9 @@ function InterviewHeatmap({ allRows, logs }) {
   );
 }
 
-// ===== Role-specific scheduling queue (pending requests for a role) =====
-function RoleQueue({ interviews, role }) {
-  const [expanded, setExpanded] = useState(false);
+// ===== Browse tabs: Requested (pending queue) vs Scheduled (upcoming) pills =====
+function BrowseTabs({ interviews, allRows, role }) {
+  const [active, setActive] = useState('scheduled');
 
   const pendingRows = useMemo(() => {
     if (!role) return [];
@@ -597,31 +597,56 @@ function RoleQueue({ interviews, role }) {
     });
   }, [interviews, role]);
 
-  if (!role) return null;
+  const scheduledCount = useMemo(() => {
+    if (!role) return 0;
+    return interviews.filter(row =>
+      !isStructuralRow(row) &&
+      (getCell(row, COLUMN_IDS.role) || '').toLowerCase() === role.toLowerCase() &&
+      (getCell(row, COLUMN_IDS.status) || '').toLowerCase() === 'scheduled').length;
+  }, [interviews, role]);
+
+  if (!role) {
+    return <p className="upcoming-hint">Select a role to see its queue and upcoming interviews.</p>;
+  }
 
   return (
-    <div className="role-queue">
-      <button
-        className={`role-queue-card${pendingRows.length > 0 ? ' has-items' : ''}`}
-        onClick={() => pendingRows.length > 0 && setExpanded(e => !e)}
-      >
-        <span className="stat-number">{pendingRows.length}</span>
-        <span className="stat-desc">Scheduling queue — {role}{pendingRows.length > 0 ? (expanded ? ' ▲' : ' ▼') : ''}</span>
-      </button>
+    <div className="browse-tabs">
+      <div className="status-pills">
+        <button
+          className={`status-pill${active === 'requested' ? ' active' : ''}`}
+          onClick={() => setActive('requested')}
+        >
+          Requested
+          <span className={`pill-count${active === 'requested' ? ' active' : ''}`}>{pendingRows.length}</span>
+        </button>
+        <button
+          className={`status-pill${active === 'scheduled' ? ' active' : ''}`}
+          onClick={() => setActive('scheduled')}
+        >
+          Scheduled
+          <span className={`pill-count${active === 'scheduled' ? ' active' : ''}`}>{scheduledCount}</span>
+        </button>
+      </div>
 
-      {expanded && pendingRows.length > 0 && (
-        <div className="role-queue-list">
-          {pendingRows.map((p, i) => (
-            <div key={i} className="role-queue-item">
-              <strong>{p.candidate}</strong>
-              <span>{p.role}</span>
-              <span>{p.roundsRequested} round{p.roundsRequested !== 1 ? 's' : ''} requested</span>
-              <span>Recruiter: {p.recruiter}</span>
-              <span className={`priority-tag priority-${p.priority.toLowerCase().replace(' ', '-')}`}>{p.priority}</span>
-            </div>
-          ))}
-        </div>
+      {active === 'requested' && (
+        pendingRows.length === 0 ? (
+          <p className="upcoming-hint">No pending requests for {role}.</p>
+        ) : (
+          <div className="role-queue-list">
+            {pendingRows.map((p, i) => (
+              <div key={i} className="role-queue-item">
+                <strong>{p.candidate}</strong>
+                <span>{p.role}</span>
+                <span>{p.roundsRequested} round{p.roundsRequested !== 1 ? 's' : ''} requested</span>
+                <span>Recruiter: {p.recruiter}</span>
+                <span className={`priority-tag priority-${p.priority.toLowerCase().replace(' ', '-')}`}>{p.priority}</span>
+              </div>
+            ))}
+          </div>
+        )
       )}
+
+      {active === 'scheduled' && <UpcomingPanel interviews={allRows} role={role} />}
     </div>
   );
 }
@@ -1001,8 +1026,7 @@ function App() {
                   onChange={setHomeRole}
                   placeholder="Type any part of a role…"
                 />
-                <RoleQueue interviews={interviews} role={homeRole} />
-                <UpcomingPanel interviews={allRows} role={homeRole} />
+                <BrowseTabs interviews={interviews} allRows={allRows} role={homeRole} />
               </div>
             </>
           )}
