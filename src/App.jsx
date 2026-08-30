@@ -80,6 +80,12 @@ const LOG_COLS = {
   reason: 8701660249231236,
   rescheduledBy: 2371420426112900,
   reportedBy: 538885924622212,
+  rc: 3123716294479748,
+  recruiter: 7627315921850244,
+  role: 1997816387637124,
+  requestedOn: 6501416015007620,
+  scheduledOn: 4249616201322372,
+  timeToSchedule: 8753215828692868,
 };
 
 export function getCell(row, columnId) {
@@ -641,20 +647,16 @@ function SuchisCorner({ mainRows, allRows, logs }) {
       const rcRows = candidates.filter(r =>
         (getCell(r, COLUMN_IDS.coordinator) || '').toLowerCase() === rc.toLowerCase());
 
-      // Avg time to schedule: Requested On → last filled round date (fully scheduled rows only)
-      const durations = [];
-      rcRows.forEach(row => {
-        const requested = parseDate(getCell(row, COLUMN_IDS.requestedOn));
-        if (!requested) return;
-        let lastDate = null;
-        for (let r = 1; r <= 5; r++) {
-          const d = parseDate(getCell(row, COLUMN_IDS.rounds[r].date));
-          if (d && (!lastDate || d > lastDate)) lastDate = d;
-        }
-        if (lastDate) durations.push((lastDate - requested) / (24 * 3600 * 1000));
-      });
-      const avgDays = durations.length
-        ? (durations.reduce((a, b) => a + b, 0) / durations.length).toFixed(1)
+      // Avg time to schedule — sourced from the permanent "Request Closed" log entries
+      // (recorded the moment a request moves from pending to scheduled; survives archiving)
+      const closureDays = logs
+        .filter(row =>
+          getCell(row, LOG_COLS.eventType) === 'Request Closed' &&
+          (getCell(row, LOG_COLS.rc) || '').toLowerCase() === rc.toLowerCase())
+        .map(row => parseFloat(getCell(row, LOG_COLS.timeToSchedule)))
+        .filter(v => !isNaN(v));
+      const avgDays = closureDays.length
+        ? (closureDays.reduce((a, b) => a + b, 0) / closureDays.length).toFixed(1)
         : null;
 
       const pending = rcRows.filter(r => (getCell(r, COLUMN_IDS.status) || '').toLowerCase() === 'pending').length;
@@ -670,7 +672,7 @@ function SuchisCorner({ mainRows, allRows, logs }) {
 
       return { rc, avgDays, pending, scheduled, thisMonth };
     });
-  }, [candidates]);
+  }, [candidates, logs]);
 
   // Priority spread per recruiter
   const prioritySpread = useMemo(() => {
