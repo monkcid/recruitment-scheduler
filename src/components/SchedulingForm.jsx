@@ -5,6 +5,7 @@ import './SchedulingForm.css';
 const COORDINATORS = ['Priti', 'Meghana'];
 const DURATIONS = ['30 minutes', '45 minutes', '60 minutes', '90 minutes'];
 const PRIORITIES = ['High Priority', 'Regular', 'Low'];
+export const RECRUITERS = ['Sandeep', 'Smitha', 'Manjula', 'Sidra', 'Suchi', 'Cameron'];
 
 // Must match the Role dropdown options in Smartsheet
 export const ROLES = [
@@ -167,7 +168,7 @@ function SchedulingForm({ onSubmit, onCancel, isLoading, interviews = [] }) {
     e.preventDefault();
 
     if (!coordinator) return alert('Please select a Recruitment Coordinator');
-    if (!recruiterName.trim()) return alert('Please enter the Recruiter Name');
+    if (!recruiterName) return alert('Please select the Recruiter Name');
     if (!candidateName.trim()) return alert('Please enter the Candidate Name');
     if (!emailId.trim()) return alert('Please enter the Email ID');
     if (!role) return alert('Please select the Role');
@@ -211,13 +212,10 @@ function SchedulingForm({ onSubmit, onCancel, isLoading, interviews = [] }) {
 
           <div className="form-group">
             <label>Recruiter Name *</label>
-            <input
-              type="text"
-              value={recruiterName}
-              onChange={(e) => setRecruiterName(e.target.value)}
-              placeholder="Enter recruiter name"
-              disabled={isLoading}
-            />
+            <select value={recruiterName} onChange={(e) => setRecruiterName(e.target.value)} disabled={isLoading}>
+              <option value="">— Select recruiter —</option>
+              {RECRUITERS.map(r => <option key={r} value={r}>{r}</option>)}
+            </select>
           </div>
 
           <div className="form-group">
