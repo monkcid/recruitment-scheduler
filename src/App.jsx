@@ -491,6 +491,60 @@ function InterviewHeatmap({ allRows, logs }) {
   );
 }
 
+// ===== Role-specific scheduling queue (pending requests for a role) =====
+function RoleQueue({ interviews, role }) {
+  const [expanded, setExpanded] = useState(false);
+
+  const pendingRows = useMemo(() => {
+    if (!role) return [];
+    return interviews.filter(row => {
+      if (isStructuralRow(row)) return false;
+      if ((getCell(row, COLUMN_IDS.role) || '').toLowerCase() !== role.toLowerCase()) return false;
+      return (getCell(row, COLUMN_IDS.status) || '').toLowerCase() === 'pending';
+    }).map(row => {
+      let roundsRequested = 0;
+      for (let r = 1; r <= 5; r++) {
+        if (getCell(row, COLUMN_IDS.rounds[r].interviewer)) roundsRequested++;
+      }
+      return {
+        candidate: getCell(row, COLUMN_IDS.candidateName),
+        role: getCell(row, COLUMN_IDS.role),
+        roundsRequested,
+        recruiter: getCell(row, COLUMN_IDS.recruiter) || '—',
+        priority: getCell(row, COLUMN_IDS.priority) || '—',
+      };
+    });
+  }, [interviews, role]);
+
+  if (!role) return null;
+
+  return (
+    <div className="role-queue">
+      <button
+        className={`role-queue-card${pendingRows.length > 0 ? ' has-items' : ''}`}
+        onClick={() => pendingRows.length > 0 && setExpanded(e => !e)}
+      >
+        <span className="stat-number">{pendingRows.length}</span>
+        <span className="stat-desc">Scheduling queue — {role}{pendingRows.length > 0 ? (expanded ? ' ▲' : ' ▼') : ''}</span>
+      </button>
+
+      {expanded && pendingRows.length > 0 && (
+        <div className="role-queue-list">
+          {pendingRows.map((p, i) => (
+            <div key={i} className="role-queue-item">
+              <strong>{p.candidate}</strong>
+              <span>{p.role}</span>
+              <span>{p.roundsRequested} round{p.roundsRequested !== 1 ? 's' : ''} requested</span>
+              <span>Recruiter: {p.recruiter}</span>
+              <span className={`priority-tag priority-${p.priority.toLowerCase().replace(' ', '-')}`}>{p.priority}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ===== Suchi's Corner =====
 const COORDINATORS = ['Priti', 'Meghana'];
 
@@ -579,14 +633,20 @@ function SuchisCorner({ mainRows, allRows, logs }) {
     const yearStart = new Date(dayStart.getFullYear(), 0, 1);
 
     let weekly = 0, monthly = 0, annual = 0;
+    let pendingCount = 0, scheduledCount = 0;
     const roleCandidates = new Set();
 
     candidates.forEach(row => {
       if ((getCell(row, COLUMN_IDS.role) || '').toLowerCase() !== role.toLowerCase()) return;
       roleCandidates.add((getCell(row, COLUMN_IDS.candidateName) || '').toLowerCase());
+
+      const status = (getCell(row, COLUMN_IDS.status) || '').toLowerCase();
+      if (status === 'pending') pendingCount++;
+      if (status === 'scheduled') scheduledCount++;
+
       for (let r = 1; r <= 5; r++) {
         const d = parseDate(getCell(row, COLUMN_IDS.rounds[r].date));
-        if (!d || d > dayStart) continue; // completed = happened on/before today
+        if (!d || d > dayStart) continue; // completed = interview date is past
         if (d >= yearStart) annual++;
         if (d >= monthStart) monthly++;
         if (d >= weekStart) weekly++;
@@ -605,7 +665,7 @@ function SuchisCorner({ mainRows, allRows, logs }) {
       .filter(e => e.type === 'Reschedule' &&
         roleCandidates.has((e.candidate || '').toLowerCase()));
 
-    return { weekly, monthly, annual, reschedules: roleReschedules };
+    return { weekly, monthly, annual, pendingCount, scheduledCount, reschedules: roleReschedules };
   }, [candidates, logs, role]);
 
   return (
@@ -680,6 +740,14 @@ function SuchisCorner({ mainRows, allRows, logs }) {
         {roleStats && (
           <>
             <div className="heatmap-grid rs-grid">
+              <div className="stat-card">
+                <span className="stat-number">{roleStats.pendingCount}</span>
+                <span className="stat-desc">Pending (fresh requests)</span>
+              </div>
+              <div className="stat-card">
+                <span className="stat-number">{roleStats.scheduledCount}</span>
+                <span className="stat-desc">Currently scheduled</span>
+              </div>
               <div className="stat-card">
                 <span className="stat-number">{roleStats.weekly}</span>
                 <span className="stat-desc">Completed this week</span>
@@ -764,11 +832,6 @@ function App() {
       setLoading(false);
     }
   };
-
-  const queueCount = useMemo(() =>
-    interviews.filter(r => !isStructuralRow(r) &&
-      (getCell(r, COLUMN_IDS.status) || '').toLowerCase() === 'pending').length
-  , [interviews]);
 
   const handleSubmit = async (formData) => {
     setLoading(true);
@@ -855,18 +918,13 @@ function App() {
 
               <div className="role-explorer">
                 <h3>🔍 Browse Upcoming Interviews</h3>
-                <div className="browse-stats-row">
-                  <div className="stat-card">
-                    <span className="stat-number">{queueCount}</span>
-                    <span className="stat-desc">Current scheduling queue</span>
-                  </div>
-                </div>
                 <AutocompleteInput
                   options={ROLES}
                   value={homeRole}
                   onChange={setHomeRole}
                   placeholder="Type any part of a role…"
                 />
+                <RoleQueue interviews={interviews} role={homeRole} />
                 <UpcomingPanel interviews={allRows} role={homeRole} />
               </div>
             </>
