@@ -142,6 +142,36 @@
   color: #0f2043;
 }
 
+.selected-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  background: #eef1ff;
+  border: 1px solid #cfd8ff;
+  color: #0f2043;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 16px;
+  padding: 5px 8px 5px 14px;
+}
+
+.chip-clear {
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.chip-clear:hover {
+  background: #4a5adf;
+}
+
 .hero-row {
   display: flex;
   align-items: center;
@@ -585,6 +615,190 @@
 .hu-candidate {
   color: #333;
   text-align: right;
+}
+
+/* Availability placeholder box */
+.availability-box {
+  margin-top: 18px;
+  background: white;
+  border: 1px dashed #9db2e8;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.availability-box h4 {
+  margin: 0 0 8px 0;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #0f2043;
+}
+
+/* Big interview calendar */
+.big-calendar {
+  margin-top: 18px;
+  background: white;
+  border: 1px solid #cfe8ff;
+  border-radius: 10px;
+  padding: 18px;
+}
+
+.big-cal-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.big-cal-nav h4 {
+  margin: 0;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #0f2043;
+}
+
+.big-cal-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.big-cal-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f2043;
+  min-width: 150px;
+  text-align: center;
+}
+
+.btn-today {
+  background: #f0f4ff;
+  border: 1px solid #cfd8ff;
+  border-radius: 6px;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #667eea;
+  cursor: pointer;
+}
+
+.btn-today:hover {
+  background: #667eea;
+  color: white;
+}
+
+.big-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  border-top: 1px solid #eee;
+  border-left: 1px solid #eee;
+}
+
+.big-cal-dow {
+  padding: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #999;
+  text-align: center;
+  border-right: 1px solid #eee;
+  border-bottom: 1px solid #eee;
+  background: #fafbff;
+}
+
+.big-cal-cell {
+  min-height: 86px;
+  padding: 6px;
+  border-right: 1px solid #eee;
+  border-bottom: 1px solid #eee;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: white;
+}
+
+.big-cal-cell.past {
+  background: #fafafa;
+}
+
+.big-cal-cell.empty {
+  background: #fcfcfc;
+}
+
+.big-cal-daynum {
+  font-size: 12px;
+  font-weight: 600;
+  color: #555;
+  align-self: flex-end;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+.big-cal-daynum.today {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.cal-event {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: #eef1ff;
+  border: 1px solid #d7ddff;
+  border-radius: 10px;
+  padding: 2px 8px;
+  font-size: 11px;
+  color: #0f2043;
+  overflow: hidden;
+  white-space: nowrap;
+  cursor: default;
+}
+
+.cal-event.past {
+  background: #f3f3f3;
+  border-color: #e2e2e2;
+  color: #888;
+}
+
+.cal-event-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #f0a500;
+  flex-shrink: 0;
+}
+
+.cal-event.past .cal-event-dot {
+  background: #bbb;
+}
+
+.cal-event-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 600;
+}
+
+.cal-event-time {
+  margin-left: auto;
+  color: #888;
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+  .big-cal-cell {
+    min-height: 56px;
+  }
+
+  .cal-event-time {
+    display: none;
+  }
 }
 
 /* Suchi's Corner */

@@ -139,11 +139,9 @@ export function Logo() {
 
 // ===== Autocomplete: type start OR middle of a word, matching options appear =====
 export function AutocompleteInput({ options, value, onChange, placeholder }) {
-  const [text, setText] = useState(value || '');
+  const [text, setText] = useState('');
   const [open, setOpen] = useState(false);
   const wrapRef = useRef(null);
-
-  useEffect(() => { setText(value || ''); }, [value]);
 
   useEffect(() => {
     const onDocClick = (e) => {
@@ -159,9 +157,10 @@ export function AutocompleteInput({ options, value, onChange, placeholder }) {
     return options.filter(o => o.toLowerCase().includes(q));
   }, [options, text]);
 
+  // Selecting fills the value AND clears the input — ready for the next search
   const select = (opt) => {
     onChange(opt);
-    setText(opt);
+    setText('');
     setOpen(false);
   };
 
@@ -170,10 +169,16 @@ export function AutocompleteInput({ options, value, onChange, placeholder }) {
       <input
         type="text"
         value={text}
-        placeholder={placeholder}
-        onChange={(e) => { setText(e.target.value); setOpen(true); if (e.target.value === '') onChange(''); }}
+        placeholder={value ? `Selected: ${value} — type to search again` : placeholder}
+        onChange={(e) => { setText(e.target.value); setOpen(true); }}
         onFocus={() => setOpen(true)}
       />
+      {value && (
+        <div className="selected-chip">
+          {value}
+          <button type="button" className="chip-clear" onClick={() => onChange('')}>×</button>
+        </div>
+      )}
       {open && filtered.length > 0 && (
         <div className="autocomplete-list">
           {filtered.map(opt => (
@@ -331,7 +336,81 @@ function RescheduleCorner({ logs }) {
   );
 }
 
-// ===== Interview Heatmap =====
+// ===== Interview Heatmap calendar (month view of an interviewer's schedule) =====
+function InterviewCalendar({ items }) {
+  const [offset, setOffset] = useState(0); // months from current; -12..+12
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const view = new Date(today.getFullYear(), today.getMonth() + offset, 1);
+  const daysInMonth = new Date(view.getFullYear(), view.getMonth() + 1, 0).getDate();
+  const startOffset = view.getDay(); // Sunday-first, like a classic calendar
+
+  const byDay = useMemo(() => {
+    const map = {};
+    items.forEach(item => {
+      const key = `${item.date.getFullYear()}-${item.date.getMonth()}-${item.date.getDate()}`;
+      if (!map[key]) map[key] = [];
+      map[key].push(item);
+    });
+    return map;
+  }, [items]);
+
+  const cells = [];
+  for (let i = 0; i < startOffset; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+
+  const isToday = (d) =>
+    offset === 0 && d === new Date().getDate();
+
+  return (
+    <div className="big-calendar">
+      <div className="big-cal-nav">
+        <h4>📅 Interview Heatmap</h4>
+        <div className="big-cal-controls">
+          <button className="mini-cal-btn" onClick={() => setOffset(o => Math.max(-12, o - 1))}>‹</button>
+          <span className="big-cal-title">
+            {view.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}
+          </span>
+          <button className="mini-cal-btn" onClick={() => setOffset(o => Math.min(12, o + 1))}>›</button>
+          {offset !== 0 && (
+            <button className="btn-today" onClick={() => setOffset(0)}>Today</button>
+          )}
+        </div>
+      </div>
+
+      <div className="big-cal-grid">
+        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
+          <div key={d} className="big-cal-dow">{d}</div>
+        ))}
+        {cells.map((d, i) => {
+          if (d === null) return <div key={i} className="big-cal-cell empty" />;
+          const cellDate = new Date(view.getFullYear(), view.getMonth(), d);
+          const key = `${cellDate.getFullYear()}-${cellDate.getMonth()}-${cellDate.getDate()}`;
+          const dayItems = byDay[key] || [];
+          const isPast = cellDate < today;
+          return (
+            <div key={i} className={`big-cal-cell${isPast ? ' past' : ''}`}>
+              <span className={`big-cal-daynum${isToday(d) ? ' today' : ''}`}>{d}</span>
+              {dayItems.map((item, ii) => (
+                <div
+                  key={ii}
+                  className={`cal-event${isPast ? ' past' : ''}`}
+                  title={`${item.candidate} · R${item.round}${item.timeStr ? ` · ${item.timeStr}` : ''}`}
+                >
+                  <span className="cal-event-dot" />
+                  <span className="cal-event-name">{item.candidate}</span>
+                  {item.timeStr && <span className="cal-event-time">{item.timeStr}</span>}
+                </div>
+              ))}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ===== Interviewer Heatmap =====
 function InterviewHeatmap({ allRows, logs }) {
   const [selected, setSelected] = useState('');
 
@@ -358,7 +437,7 @@ function InterviewHeatmap({ allRows, logs }) {
     let total = 0;
     let thisMonth = 0;
     let lastFourWeeks = 0;
-    const upcomingItems = [];
+    const calendarItems = []; // ALL dated interviews for this interviewer — past, today, future
 
     allRows.forEach(row => {
       if (isStructuralRow(row)) return;
@@ -367,32 +446,23 @@ function InterviewHeatmap({ allRows, logs }) {
         if ((name || '').toLowerCase() !== selected.toLowerCase()) continue;
         const date = parseDate(getCell(row, COLUMN_IDS.rounds[r].date));
         if (!date) continue;
-        if (date >= dayStart) {
-          upcomingItems.push({
-            date,
-            timeStr: getCell(row, COLUMN_IDS.rounds[r].time),
-            candidate: getCell(row, COLUMN_IDS.candidateName),
-            round: r,
-          });
-          continue;
-        }
+
+        calendarItems.push({
+          date,
+          timeStr: getCell(row, COLUMN_IDS.rounds[r].time),
+          candidate: getCell(row, COLUMN_IDS.candidateName),
+          round: r,
+        });
+
+        if (date >= dayStart) continue; // future → calendar only
         total++;
         if (date >= monthStart) thisMonth++;
         if (date >= fourWeeksAgo) lastFourWeeks++;
       }
     });
 
-    upcomingItems.sort((a, b) => a.date - b.date);
-    const weekMap = new Map();
-    upcomingItems.forEach(item => {
-      const ws = startOfWeekMonday(item.date).getTime();
-      if (!weekMap.has(ws)) weekMap.set(ws, []);
-      weekMap.get(ws).push(item);
-    });
-    const upcomingWeeks = Array.from(weekMap.entries()).map(([ws, items]) => ({
-      label: upcomingWeekLabel(new Date(ws), dayStart),
-      items,
-    }));
+    calendarItems.sort((a, b) => a.date - b.date);
+    const upcomingTotal = calendarItems.filter(i => i.date >= dayStart).length;
 
     const reschedules = logs
       .map(row => ({
@@ -416,14 +486,14 @@ function InterviewHeatmap({ allRows, logs }) {
       avgWeekly: (lastFourWeeks / 4).toFixed(1),
       rescheduleCount: reschedules.length,
       topReason,
-      upcomingTotal: upcomingItems.length,
-      upcomingWeeks,
+      upcomingTotal,
+      calendarItems,
     };
   }, [allRows, logs, selected]);
 
   return (
     <div className="heatmap">
-      <h3>🔥 Interview Heatmap</h3>
+      <h3>🔥 Interviewer Heatmap</h3>
       <AutocompleteInput
         options={interviewers}
         value={selected}
@@ -456,35 +526,12 @@ function InterviewHeatmap({ allRows, logs }) {
             </div>
           </div>
 
-          <div className="heatmap-upcoming">
-            <div className="hu-header">
-              <h4>Upcoming Interviews — Week-wise Focus</h4>
-              <span className="hu-total">{stats.upcomingTotal} total</span>
-            </div>
-            {stats.upcomingWeeks.length === 0 ? (
-              <p className="rc-empty">No upcoming interviews for this panel.</p>
-            ) : (
-              <div className="hu-weeks">
-                {stats.upcomingWeeks.map((week, wi) => (
-                  <div key={wi} className="hu-week">
-                    <div className="hu-week-header">
-                      <span>{week.label}</span>
-                      <span className="day-count-blue">{week.items.length}</span>
-                    </div>
-                    {week.items.map((item, ii) => (
-                      <div key={ii} className="hu-item">
-                        <span className="hu-date">
-                          {item.date.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}
-                          {item.timeStr ? ` · ${item.timeStr}` : ''}
-                        </span>
-                        <span className="hu-candidate">{item.candidate} <span className="item-round">· R{item.round}</span></span>
-                      </div>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            )}
+          <div className="availability-box">
+            <h4>🕐 General Availability for Taking Interviews & Special Instructions</h4>
+            <p className="rc-empty">Coming soon — availability and special instructions for {selected} will appear here once we set up how to capture them.</p>
           </div>
+
+          <InterviewCalendar items={stats.calendarItems} />
         </>
       )}
     </div>
@@ -786,7 +833,7 @@ function SuchisCorner({ mainRows, allRows, logs }) {
 }
 
 // ===== App =====
-const TABS = ['Main', 'Reschedule Corner', 'Interview Heatmap', "Suchi's Corner"];
+const TABS = ['Main', 'Reschedule Corner', 'Interviewer Heatmap', "Suchi's Corner"];
 
 function App() {
   const [view, setView] = useState('home'); // 'home' or 'form'
@@ -932,7 +979,7 @@ function App() {
 
           {tab === 'Reschedule Corner' && <RescheduleCorner logs={logs} />}
 
-          {tab === 'Interview Heatmap' && <InterviewHeatmap allRows={allRows} logs={logs} />}
+          {tab === 'Interviewer Heatmap' && <InterviewHeatmap allRows={allRows} logs={logs} />}
 
           {tab === "Suchi's Corner" && <SuchisCorner mainRows={interviews} allRows={allRows} logs={logs} />}
 
