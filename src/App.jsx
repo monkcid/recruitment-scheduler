@@ -336,11 +336,33 @@ function RescheduleCorner({ logs }) {
   );
 }
 
+// Combine an item's date + time string ("2:00 PM") into a full datetime.
+// If no time is given, the interview counts as done only after the whole day passes.
+function eventDateTime(item) {
+  const dt = new Date(item.date);
+  const m = String(item.timeStr || '').match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (m) {
+    let h = parseInt(m[1], 10) % 12;
+    if (m[3].toUpperCase() === 'PM') h += 12;
+    dt.setHours(h, parseInt(m[2], 10), 0, 0);
+  } else {
+    dt.setHours(23, 59, 59, 999);
+  }
+  return dt;
+}
+
 // ===== Interview Heatmap calendar (month view of an interviewer's schedule) =====
 function InterviewCalendar({ items }) {
   const [offset, setOffset] = useState(0); // months from current; -12..+12
+  const [now, setNow] = useState(new Date());
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+
+  // Real-time: re-check every 30 seconds so pills flip orange → green live
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 30000);
+    return () => clearInterval(t);
+  }, []);
   const view = new Date(today.getFullYear(), today.getMonth() + offset, 1);
   const daysInMonth = new Date(view.getFullYear(), view.getMonth() + 1, 0).getDate();
   const startOffset = view.getDay(); // Sunday-first, like a classic calendar
@@ -391,17 +413,22 @@ function InterviewCalendar({ items }) {
           return (
             <div key={i} className={`big-cal-cell${isPast ? ' past' : ''}`}>
               <span className={`big-cal-daynum${isToday(d) ? ' today' : ''}`}>{d}</span>
-              {dayItems.map((item, ii) => (
-                <div
-                  key={ii}
-                  className={`cal-event${isPast ? ' past' : ''}`}
-                  title={`${item.candidate} · R${item.round}${item.timeStr ? ` · ${item.timeStr}` : ''}`}
-                >
-                  <span className="cal-event-dot" />
-                  <span className="cal-event-name">{item.candidate}</span>
-                  {item.timeStr && <span className="cal-event-time">{item.timeStr}</span>}
-                </div>
-              ))}
+              {dayItems.map((item, ii) => {
+                const done = eventDateTime(item) <= now; // real-time: green once date & time have passed
+                return (
+                  <div
+                    key={ii}
+                    className={`cal-event${done ? ' done' : ''}`}
+                    title={`${item.candidate} · Round ${item.round} · ${item.role || '—'}${item.timeStr ? ` · ${item.timeStr}` : ''} · ${done ? 'Done' : 'Scheduled'}`}
+                  >
+                    <span className={`cal-event-dot${done ? ' done' : ''}`} />
+                    <span className="cal-event-body">
+                      <span className="cal-event-name">{item.candidate}</span>
+                      <span className="cal-event-meta">R{item.round}{item.role ? ` · ${item.role}` : ''}</span>
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           );
         })}
@@ -451,6 +478,7 @@ function InterviewHeatmap({ allRows, logs }) {
           date,
           timeStr: getCell(row, COLUMN_IDS.rounds[r].time),
           candidate: getCell(row, COLUMN_IDS.candidateName),
+          role: getCell(row, COLUMN_IDS.role),
           round: r,
         });
 
