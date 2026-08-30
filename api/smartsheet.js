@@ -18,6 +18,8 @@ export default async function handler(req, res) {
 
   // Scheduling Logs sheet (reschedule/cancellation history)
   const LOGS_SHEET_ID = '4996209927212932';
+  // Archive sheet (completed/historical candidates)
+  const ARCHIVE_SHEET_ID = '6940009046167428';
 
   try {
     switch (action) {
@@ -25,6 +27,8 @@ export default async function handler(req, res) {
         return await getSheet(token, sheetId, res);
       case 'getLogs':
         return await getSheet(token, LOGS_SHEET_ID, res);
+      case 'getArchive':
+        return await getSheet(token, ARCHIVE_SHEET_ID, res);
       case 'addRow':
         return await addRow(token, sheetId, data, res);
       case 'updateRow':
