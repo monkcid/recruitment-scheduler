@@ -1,14 +1,14 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import SchedulingForm, { UpcomingPanel, ROLES } from './components/SchedulingForm';
 import './App.css';
 
-// Real Smartsheet column IDs for "Advanced scheduling" sheet
+// ===== Tracker (Advanced scheduling) column IDs =====
 export const COLUMN_IDS = {
   candidateName: 1319526027005828,
   emailId: 5823125654376324,
   greenhouse: 3571325840691076,
   recruiter: 8074925468061572,
-  coordinator: 2747206844845956, // RC column
+  coordinator: 2747206844845956, // RC
   role: 4999006658531204,
   rounds: {
     1: { interviewer: 495407031160708, date: 8658181355769732, time: 829701515677572, duration: 4717531681820548 },
@@ -17,11 +17,114 @@ export const COLUMN_IDS = {
     4: { interviewer: 5280481635241860, date: 776882007871364, time: 8095231402348420, duration: 4295319216754564 },
     5: { interviewer: 3591631774977924, date: 5843431588663172, time: 1339831961292676, duration: 6547119030439812 },
   },
+  rescheduleCounter: 6969331495505796,
   specialRequests: 2043519403069316,
   status: 2465731868135300,
+  priority: 7673018937282436,
+  requestedOn: 3169419309911940,
 };
 
-// Smartsheet logo (inline SVG)
+// ===== Archive sheet column IDs (mapped → tracker IDs on load) =====
+const ARCHIVE_TO_TRACKER = {
+  3361296839643012: COLUMN_IDS.candidateName,
+  7864896467013508: COLUMN_IDS.emailId,
+  2235396932800388: COLUMN_IDS.greenhouse,
+  6738996560170884: COLUMN_IDS.recruiter,
+  4487196746485636: COLUMN_IDS.coordinator,
+  8990796373856132: COLUMN_IDS.role,
+  9985398181764: COLUMN_IDS.rounds[1].interviewer,
+  4513585025552260: COLUMN_IDS.rounds[1].date,
+  2261785211867012: COLUMN_IDS.rounds[1].time,
+  6765384839237508: COLUMN_IDS.rounds[1].duration,
+  1135885305024388: COLUMN_IDS.rounds[2].interviewer,
+  5639484932394884: COLUMN_IDS.rounds[2].date,
+  3387685118709636: COLUMN_IDS.rounds[2].time,
+  7891284746080132: COLUMN_IDS.rounds[2].duration,
+  572935351603076: COLUMN_IDS.rounds[3].interviewer,
+  5076534978973572: COLUMN_IDS.rounds[3].date,
+  2824735165288324: COLUMN_IDS.rounds[3].time,
+  7328334792658820: COLUMN_IDS.rounds[3].duration,
+  1698835258445700: COLUMN_IDS.rounds[4].interviewer,
+  6202434885816196: COLUMN_IDS.rounds[4].date,
+  3950635072130948: COLUMN_IDS.rounds[4].time,
+  8454234699501444: COLUMN_IDS.rounds[4].duration,
+  291460374892420: COLUMN_IDS.rounds[5].interviewer,
+  4795060002262916: COLUMN_IDS.rounds[5].date,
+  2543260188577668: COLUMN_IDS.rounds[5].time,
+  7046859815948164: COLUMN_IDS.rounds[5].duration,
+  1417360281735044: COLUMN_IDS.rescheduleCounter,
+  5920959909105540: COLUMN_IDS.status,
+  3669160095420292: COLUMN_IDS.specialRequests,
+  8172759722790788: COLUMN_IDS.priority,
+  854410328313732: COLUMN_IDS.requestedOn,
+};
+
+function normalizeArchiveRow(row) {
+  return {
+    ...row,
+    isArchived: true,
+    cells: (row.cells || []).map(c => ({
+      ...c,
+      columnId: ARCHIVE_TO_TRACKER[c.columnId] || c.columnId,
+    })),
+  };
+}
+
+// ===== Log sheet column IDs =====
+const LOG_COLS = {
+  loggedAt: 3072160715018116,
+  eventType: 7575760342388612,
+  candidate: 1946260808175492,
+  panel: 6449860435545988,
+  round: 4198060621860740,
+  reason: 8701660249231236,
+  rescheduledBy: 2371420426112900,
+  reportedBy: 538885924622212,
+};
+
+export function getCell(row, columnId) {
+  const cell = row.cells?.find(c => c.columnId === columnId);
+  return cell?.displayValue ?? cell?.value ?? '';
+}
+
+const SECTION_NAMES = ['📋 PENDING', '📅 SCHEDULED', '✅ COMPLETED'];
+export function isStructuralRow(row) {
+  const name = String(getCell(row, COLUMN_IDS.candidateName) || '').trim();
+  return !name || SECTION_NAMES.includes(name) || name.startsWith('━');
+}
+
+export function parseDate(dateStr) {
+  if (!dateStr) return null;
+  const d = new Date(dateStr);
+  if (!isNaN(d.getTime())) return d;
+  const m = String(dateStr).match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/);
+  if (m) {
+    const d2 = new Date(`${m[3].length === 2 ? '20' + m[3] : m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`);
+    if (!isNaN(d2.getTime())) return d2;
+  }
+  return null;
+}
+
+function startOfWeekMonday(date) {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  const day = d.getDay();
+  d.setDate(d.getDate() + (day === 0 ? -6 : 1 - day));
+  return d;
+}
+
+function upcomingWeekLabel(weekStart, today) {
+  const thisWeek = startOfWeekMonday(today);
+  const diff = Math.round((weekStart - thisWeek) / (7 * 24 * 3600 * 1000));
+  if (diff === 0) return 'This Week';
+  if (diff === 1) return 'Next Week';
+  const end = new Date(weekStart);
+  end.setDate(end.getDate() + 6);
+  const fmt = (d) => d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+  return `${fmt(weekStart)} – ${fmt(end)}`;
+}
+
+// ===== Smartsheet logo =====
 export function Logo() {
   return (
     <svg viewBox="0 0 100 100" className="logo" xmlns="http://www.w3.org/2000/svg">
@@ -34,39 +137,64 @@ export function Logo() {
   );
 }
 
-function getCell(row, columnId) {
-  const cell = row.cells?.find(c => c.columnId === columnId);
-  return cell?.displayValue ?? cell?.value ?? '';
+// ===== Autocomplete: type start OR middle of a word, matching options appear =====
+export function AutocompleteInput({ options, value, onChange, placeholder }) {
+  const [text, setText] = useState(value || '');
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef(null);
+
+  useEffect(() => { setText(value || ''); }, [value]);
+
+  useEffect(() => {
+    const onDocClick = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, []);
+
+  const filtered = useMemo(() => {
+    const q = text.trim().toLowerCase();
+    if (!q) return options;
+    return options.filter(o => o.toLowerCase().includes(q));
+  }, [options, text]);
+
+  const select = (opt) => {
+    onChange(opt);
+    setText(opt);
+    setOpen(false);
+  };
+
+  return (
+    <div className="autocomplete" ref={wrapRef}>
+      <input
+        type="text"
+        value={text}
+        placeholder={placeholder}
+        onChange={(e) => { setText(e.target.value); setOpen(true); if (e.target.value === '') onChange(''); }}
+        onFocus={() => setOpen(true)}
+      />
+      {open && filtered.length > 0 && (
+        <div className="autocomplete-list">
+          {filtered.map(opt => (
+            <div key={opt} className="autocomplete-item" onMouseDown={() => select(opt)}>
+              {opt}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
-// Section parent rows in the sheet — never treat these as candidates
-const SECTION_NAMES = ['📋 PENDING', '📅 SCHEDULED', '✅ COMPLETED'];
-export function isSectionRow(row) {
-  const name = getCell(row, COLUMN_IDS.candidateName);
-  return SECTION_NAMES.includes(name);
-}
-
-function parseDate(dateStr) {
-  if (!dateStr) return null;
-  const d = new Date(dateStr);
-  if (!isNaN(d.getTime())) return d;
-  const m = String(dateStr).match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/);
-  if (m) {
-    const d2 = new Date(`${m[3].length === 2 ? '20' + m[3] : m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`);
-    if (!isNaN(d2.getTime())) return d2;
-  }
-  return null;
-}
-
-// Mini month calendar with today highlighted
+// ===== Interactive mini calendar (current month → +2 months) =====
 function MiniCalendar() {
+  const [offset, setOffset] = useState(0); // 0 = current month, max 2
   const today = new Date();
-  const year = today.getFullYear();
-  const month = today.getMonth();
-  const firstDay = new Date(year, month, 1);
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  // Monday-first offset
-  const startOffset = (firstDay.getDay() + 6) % 7;
+  const view = new Date(today.getFullYear(), today.getMonth() + offset, 1);
+  const daysInMonth = new Date(view.getFullYear(), view.getMonth() + 1, 0).getDate();
+  const startOffset = (view.getDay() + 6) % 7;
+  const isCurrentMonth = offset === 0;
 
   const cells = [];
   for (let i = 0; i < startOffset; i++) cells.push(null);
@@ -74,8 +202,20 @@ function MiniCalendar() {
 
   return (
     <div className="mini-calendar">
-      <div className="mini-cal-title">
-        {today.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}
+      <div className="mini-cal-nav">
+        <button
+          className="mini-cal-btn"
+          onClick={() => setOffset(o => Math.max(0, o - 1))}
+          disabled={offset === 0}
+        >‹</button>
+        <div className="mini-cal-title">
+          {view.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}
+        </div>
+        <button
+          className="mini-cal-btn"
+          onClick={() => setOffset(o => Math.min(2, o + 1))}
+          disabled={offset === 2}
+        >›</button>
       </div>
       <div className="mini-cal-grid">
         {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
@@ -84,7 +224,7 @@ function MiniCalendar() {
         {cells.map((d, i) => (
           <div
             key={i}
-            className={`mini-cal-day${d === today.getDate() ? ' today' : ''}${d === null ? ' empty' : ''}`}
+            className={`mini-cal-day${isCurrentMonth && d === today.getDate() ? ' today' : ''}${d === null ? ' empty' : ''}`}
           >
             {d || ''}
           </div>
@@ -94,19 +234,7 @@ function MiniCalendar() {
   );
 }
 
-// Log sheet column IDs (Scheduling Logs)
-const LOG_COLS = {
-  loggedAt: 3072160715018116,
-  eventType: 7575760342388612,
-  candidate: 1946260808175492,
-  panel: 6449860435545988,
-  round: 4198060621860740,
-  reason: 8701660249231236,
-  rescheduledBy: 2371420426112900, // Candidate / Panel / Other
-  reportedBy: 538885924622212,
-};
-
-// Reschedule Corner — stats from the Scheduling Logs sheet (current month only)
+// ===== Reschedule Corner (current month) =====
 function RescheduleCorner({ logs }) {
   const stats = useMemo(() => {
     const now = new Date();
@@ -125,9 +253,7 @@ function RescheduleCorner({ logs }) {
       .filter(e => e.type === 'Reschedule' &&
         e.loggedAt && e.loggedAt >= monthStart && e.loggedAt <= monthEnd);
 
-    // Candidate-initiated reschedules, counted per candidate
     const byCandidate = {};
-    // Panel-initiated reschedules, reasons listed per panel
     const byPanel = {};
     let candidateCount = 0;
     let panelCount = 0;
@@ -151,6 +277,7 @@ function RescheduleCorner({ logs }) {
   return (
     <div className="reschedule-corner">
       <h3>🔄 Reschedule Corner <span className="rc-month">({new Date().toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })})</span></h3>
+
       <div className="rc-totals-row">
         <div className="rc-total">
           <span className="stat-number">{stats.total}</span>
@@ -204,47 +331,28 @@ function RescheduleCorner({ logs }) {
   );
 }
 
-function startOfWeekMonday(date) {
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  const day = d.getDay();
-  d.setDate(d.getDate() + (day === 0 ? -6 : 1 - day));
-  return d;
-}
-
-function upcomingWeekLabel(weekStart, today) {
-  const thisWeek = startOfWeekMonday(today);
-  const diff = Math.round((weekStart - thisWeek) / (7 * 24 * 3600 * 1000));
-  if (diff === 0) return 'This Week';
-  if (diff === 1) return 'Next Week';
-  const end = new Date(weekStart);
-  end.setDate(end.getDate() + 6);
-  const fmt = (d) => d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
-  return `${fmt(weekStart)} – ${fmt(end)}`;
-}
-
-// Interview Heatmap — per-interviewer workload stats
-function InterviewHeatmap({ interviews, logs }) {
+// ===== Interview Heatmap =====
+function InterviewHeatmap({ allRows, logs }) {
   const [selected, setSelected] = useState('');
 
-  // Unique interviewer names across all rounds
   const interviewers = useMemo(() => {
     const names = new Set();
-    interviews.forEach(row => {
+    allRows.forEach(row => {
+      if (isStructuralRow(row)) return;
       for (let r = 1; r <= 5; r++) {
         const name = getCell(row, COLUMN_IDS.rounds[r].interviewer);
-        if (name && name !== `Round ${r} - Interviewer`) names.add(name);
+        if (name) names.add(name);
       }
     });
     return Array.from(names).sort();
-  }, [interviews]);
+  }, [allRows]);
 
   const stats = useMemo(() => {
     if (!selected) return null;
-    const today = new Date();
-    today.setHours(23, 59, 59, 999);
-    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-    const fourWeeksAgo = new Date(today);
+    const dayStart = new Date();
+    dayStart.setHours(0, 0, 0, 0);
+    const monthStart = new Date(dayStart.getFullYear(), dayStart.getMonth(), 1);
+    const fourWeeksAgo = new Date(dayStart);
     fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
 
     let total = 0;
@@ -252,16 +360,14 @@ function InterviewHeatmap({ interviews, logs }) {
     let lastFourWeeks = 0;
     const upcomingItems = [];
 
-    interviews.forEach(row => {
+    allRows.forEach(row => {
+      if (isStructuralRow(row)) return;
       for (let r = 1; r <= 5; r++) {
         const name = getCell(row, COLUMN_IDS.rounds[r].interviewer);
         if ((name || '').toLowerCase() !== selected.toLowerCase()) continue;
         const date = parseDate(getCell(row, COLUMN_IDS.rounds[r].date));
         if (!date) continue;
-        const dayStart = new Date();
-        dayStart.setHours(0, 0, 0, 0);
         if (date >= dayStart) {
-          // Future interview → goes to the upcoming section
           upcomingItems.push({
             date,
             timeStr: getCell(row, COLUMN_IDS.rounds[r].time),
@@ -276,10 +382,7 @@ function InterviewHeatmap({ interviews, logs }) {
       }
     });
 
-    // Group upcoming by week
     upcomingItems.sort((a, b) => a.date - b.date);
-    const startToday = new Date();
-    startToday.setHours(0, 0, 0, 0);
     const weekMap = new Map();
     upcomingItems.forEach(item => {
       const ws = startOfWeekMonday(item.date).getTime();
@@ -287,11 +390,10 @@ function InterviewHeatmap({ interviews, logs }) {
       weekMap.get(ws).push(item);
     });
     const upcomingWeeks = Array.from(weekMap.entries()).map(([ws, items]) => ({
-      label: upcomingWeekLabel(new Date(ws), startToday),
+      label: upcomingWeekLabel(new Date(ws), dayStart),
       items,
     }));
 
-    // Reschedules for this panel from logs
     const reschedules = logs
       .map(row => ({
         type: getCell(row, LOG_COLS.eventType),
@@ -301,7 +403,6 @@ function InterviewHeatmap({ interviews, logs }) {
       .filter(e => e.type === 'Reschedule' &&
         (e.panel || '').toLowerCase() === selected.toLowerCase());
 
-    // Most common reschedule reason
     const reasonCounts = {};
     reschedules.forEach(e => {
       const key = (e.reason || '(no reason given)').trim().toLowerCase();
@@ -318,177 +419,361 @@ function InterviewHeatmap({ interviews, logs }) {
       upcomingTotal: upcomingItems.length,
       upcomingWeeks,
     };
-  }, [interviews, logs, selected]);
+  }, [allRows, logs, selected]);
 
   return (
     <div className="heatmap">
       <h3>🔥 Interview Heatmap</h3>
-      <select className="role-select" value={selected} onChange={(e) => setSelected(e.target.value)}>
-        <option value="">— Select interviewer —</option>
-        {interviewers.map(name => <option key={name} value={name}>{name}</option>)}
-      </select>
+      <AutocompleteInput
+        options={interviewers}
+        value={selected}
+        onChange={setSelected}
+        placeholder="Type any part of an interviewer's name…"
+      />
 
       {stats && (
-        <div className="heatmap-grid">
-          <div className="stat-card">
-            <span className="stat-number">{stats.total}</span>
-            <span className="stat-desc">Total interviews so far</span>
-          </div>
-          <div className="stat-card">
-            <span className="stat-number">{stats.thisMonth}</span>
-            <span className="stat-desc">This month</span>
-          </div>
-          <div className="stat-card">
-            <span className="stat-number">{stats.avgWeekly}</span>
-            <span className="stat-desc">Avg weekly interviews (last 4 weeks)</span>
-          </div>
-          <div className="stat-card">
-            <span className="stat-number">{stats.rescheduleCount}</span>
-            <span className="stat-desc">Total reschedule requests</span>
-          </div>
-          <div className="stat-card stat-card-wide">
-            <span className="stat-reason">{stats.topReason}</span>
-            <span className="stat-desc">Most common reschedule reason</span>
-          </div>
-        </div>
-      )}
-
-      {stats && (
-        <div className="heatmap-upcoming">
-          <div className="hu-header">
-            <h4>Upcoming Interviews — Week-wise Focus</h4>
-            <span className="hu-total">{stats.upcomingTotal} total</span>
-          </div>
-          {stats.upcomingWeeks.length === 0 ? (
-            <p className="rc-empty">No upcoming interviews for this panel.</p>
-          ) : (
-            <div className="hu-weeks">
-              {stats.upcomingWeeks.map((week, wi) => (
-                <div key={wi} className="hu-week">
-                  <div className="hu-week-header">
-                    <span>{week.label}</span>
-                    <span className="day-count-blue">{week.items.length}</span>
-                  </div>
-                  {week.items.map((item, ii) => (
-                    <div key={ii} className="hu-item">
-                      <span className="hu-date">
-                        {item.date.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}
-                        {item.timeStr ? ` · ${item.timeStr}` : ''}
-                      </span>
-                      <span className="hu-candidate">{item.candidate} <span className="item-round">· R{item.round}</span></span>
-                    </div>
-                  ))}
-                </div>
-              ))}
+        <>
+          <div className="heatmap-grid">
+            <div className="stat-card">
+              <span className="stat-number">{stats.total}</span>
+              <span className="stat-desc">Total interviews so far</span>
             </div>
-          )}
-        </div>
+            <div className="stat-card">
+              <span className="stat-number">{stats.thisMonth}</span>
+              <span className="stat-desc">This month</span>
+            </div>
+            <div className="stat-card">
+              <span className="stat-number">{stats.avgWeekly}</span>
+              <span className="stat-desc">Avg weekly (last 4 weeks)</span>
+            </div>
+            <div className="stat-card">
+              <span className="stat-number">{stats.rescheduleCount}</span>
+              <span className="stat-desc">Total reschedule requests</span>
+            </div>
+            <div className="stat-card stat-card-wide">
+              <span className="stat-reason">{stats.topReason}</span>
+              <span className="stat-desc">Most common reschedule reason</span>
+            </div>
+          </div>
+
+          <div className="heatmap-upcoming">
+            <div className="hu-header">
+              <h4>Upcoming Interviews — Week-wise Focus</h4>
+              <span className="hu-total">{stats.upcomingTotal} total</span>
+            </div>
+            {stats.upcomingWeeks.length === 0 ? (
+              <p className="rc-empty">No upcoming interviews for this panel.</p>
+            ) : (
+              <div className="hu-weeks">
+                {stats.upcomingWeeks.map((week, wi) => (
+                  <div key={wi} className="hu-week">
+                    <div className="hu-week-header">
+                      <span>{week.label}</span>
+                      <span className="day-count-blue">{week.items.length}</span>
+                    </div>
+                    {week.items.map((item, ii) => (
+                      <div key={ii} className="hu-item">
+                        <span className="hu-date">
+                          {item.date.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}
+                          {item.timeStr ? ` · ${item.timeStr}` : ''}
+                        </span>
+                        <span className="hu-candidate">{item.candidate} <span className="item-round">· R{item.round}</span></span>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </>
       )}
     </div>
   );
 }
 
-// Quick stats panel
-function QuickStats({ interviews }) {
-  const stats = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-    const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59);
+// ===== Suchi's Corner =====
+const COORDINATORS = ['Priti', 'Meghana'];
 
-    let thisMonth = 0;
-    let upcoming = 0;
-    let queue = 0;
+function SuchisCorner({ mainRows, allRows, logs }) {
+  const [period, setPeriod] = useState('overall');
+  const [role, setRole] = useState('');
 
-    interviews.forEach(row => {
-      const candidate = getCell(row, COLUMN_IDS.candidateName);
-      if (!candidate || candidate === 'Candidate Name' || isSectionRow(row)) return;
+  const candidates = useMemo(() => {
+    return allRows.filter(r => !isStructuralRow(r));
+  }, [allRows]);
 
-      const status = (getCell(row, COLUMN_IDS.status) || '').toLowerCase();
-      if (status === 'pending') queue++;
+  const rcStats = useMemo(() => {
+    const dayStart = new Date();
+    dayStart.setHours(0, 0, 0, 0);
+    const monthStart = new Date(dayStart.getFullYear(), dayStart.getMonth(), 1);
+    const monthEnd = new Date(dayStart.getFullYear(), dayStart.getMonth() + 1, 0, 23, 59, 59);
 
+    return COORDINATORS.map(rc => {
+      const rcRows = candidates.filter(r =>
+        (getCell(r, COLUMN_IDS.coordinator) || '').toLowerCase() === rc.toLowerCase());
+
+      // Avg time to schedule: Requested On → last filled round date (fully scheduled rows only)
+      const durations = [];
+      rcRows.forEach(row => {
+        const requested = parseDate(getCell(row, COLUMN_IDS.requestedOn));
+        if (!requested) return;
+        let lastDate = null;
+        for (let r = 1; r <= 5; r++) {
+          const d = parseDate(getCell(row, COLUMN_IDS.rounds[r].date));
+          if (d && (!lastDate || d > lastDate)) lastDate = d;
+        }
+        if (lastDate) durations.push((lastDate - requested) / (24 * 3600 * 1000));
+      });
+      const avgDays = durations.length
+        ? (durations.reduce((a, b) => a + b, 0) / durations.length).toFixed(1)
+        : null;
+
+      const pending = rcRows.filter(r => (getCell(r, COLUMN_IDS.status) || '').toLowerCase() === 'pending').length;
+      const scheduled = rcRows.filter(r => (getCell(r, COLUMN_IDS.status) || '').toLowerCase() === 'scheduled').length;
+
+      let thisMonth = 0;
+      rcRows.forEach(row => {
+        for (let r = 1; r <= 5; r++) {
+          const d = parseDate(getCell(row, COLUMN_IDS.rounds[r].date));
+          if (d && d >= monthStart && d <= monthEnd) thisMonth++;
+        }
+      });
+
+      return { rc, avgDays, pending, scheduled, thisMonth };
+    });
+  }, [candidates]);
+
+  // Priority spread per recruiter
+  const prioritySpread = useMemo(() => {
+    const dayStart = new Date();
+    dayStart.setHours(0, 0, 0, 0);
+    const weekStart = startOfWeekMonday(dayStart);
+    const monthStart = new Date(dayStart.getFullYear(), dayStart.getMonth(), 1);
+
+    const spread = {};
+    candidates.forEach(row => {
+      const recruiter = getCell(row, COLUMN_IDS.recruiter);
+      const priority = getCell(row, COLUMN_IDS.priority);
+      if (!recruiter || !priority) return;
+
+      if (period !== 'overall') {
+        const requested = parseDate(getCell(row, COLUMN_IDS.requestedOn));
+        if (!requested) return;
+        if (period === 'week' && requested < weekStart) return;
+        if (period === 'month' && requested < monthStart) return;
+      }
+
+      if (!spread[recruiter]) spread[recruiter] = { 'High Priority': 0, 'Regular': 0, 'Low': 0 };
+      if (spread[recruiter][priority] !== undefined) spread[recruiter][priority]++;
+    });
+    return spread;
+  }, [candidates, period]);
+
+  // Role snapshot: completed interviews weekly / monthly / annual + reschedules for the role
+  const roleStats = useMemo(() => {
+    if (!role) return null;
+    const dayStart = new Date();
+    dayStart.setHours(23, 59, 59, 999);
+    const weekStart = startOfWeekMonday(new Date());
+    const monthStart = new Date(dayStart.getFullYear(), dayStart.getMonth(), 1);
+    const yearStart = new Date(dayStart.getFullYear(), 0, 1);
+
+    let weekly = 0, monthly = 0, annual = 0;
+    const roleCandidates = new Set();
+
+    candidates.forEach(row => {
+      if ((getCell(row, COLUMN_IDS.role) || '').toLowerCase() !== role.toLowerCase()) return;
+      roleCandidates.add((getCell(row, COLUMN_IDS.candidateName) || '').toLowerCase());
       for (let r = 1; r <= 5; r++) {
-        const date = parseDate(getCell(row, COLUMN_IDS.rounds[r].date));
-        if (!date) continue;
-        if (date >= monthStart && date <= monthEnd) thisMonth++;
-        if (date >= today) upcoming++;
+        const d = parseDate(getCell(row, COLUMN_IDS.rounds[r].date));
+        if (!d || d > dayStart) continue; // completed = happened on/before today
+        if (d >= yearStart) annual++;
+        if (d >= monthStart) monthly++;
+        if (d >= weekStart) weekly++;
       }
     });
 
-    return { thisMonth, upcoming, queue };
-  }, [interviews]);
+    // Reschedule corner details for this role (match log candidates to role candidates)
+    const roleReschedules = logs
+      .map(row => ({
+        type: getCell(row, LOG_COLS.eventType),
+        candidate: getCell(row, LOG_COLS.candidate),
+        panel: getCell(row, LOG_COLS.panel),
+        reason: getCell(row, LOG_COLS.reason),
+        rescheduledBy: getCell(row, LOG_COLS.rescheduledBy) || 'Other',
+      }))
+      .filter(e => e.type === 'Reschedule' &&
+        roleCandidates.has((e.candidate || '').toLowerCase()));
+
+    return { weekly, monthly, annual, reschedules: roleReschedules };
+  }, [candidates, logs, role]);
 
   return (
-    <div className="quick-stats">
-      <h3>⚡ Quick Stats</h3>
-      <div className="stat-card">
-        <span className="stat-number">{stats.thisMonth}</span>
-        <span className="stat-desc">Interviews scheduled this month</span>
+    <div className="suchi-corner">
+      <h3>💜 Suchi's Corner — Recruitment Coordination Stats</h3>
+
+      <div className="rc-cards">
+        {rcStats.map(s => (
+          <div key={s.rc} className="rc-card">
+            <div className="rc-card-name">{s.rc}</div>
+            <div className="rc-card-grid">
+              <div className="stat-card">
+                <span className="stat-number">{s.avgDays !== null ? `${s.avgDays}d` : '—'}</span>
+                <span className="stat-desc">Avg time to schedule</span>
+              </div>
+              <div className="stat-card">
+                <span className="stat-number">{s.pending}</span>
+                <span className="stat-desc">Current pending cases</span>
+              </div>
+              <div className="stat-card">
+                <span className="stat-number">{s.scheduled}</span>
+                <span className="stat-desc">Currently scheduled</span>
+              </div>
+              <div className="stat-card">
+                <span className="stat-number">{s.thisMonth}</span>
+                <span className="stat-desc">Interviews scheduled this month</span>
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
-      <div className="stat-card">
-        <span className="stat-number">{stats.upcoming}</span>
-        <span className="stat-desc">Upcoming interviews</span>
+
+      <div className="priority-spread">
+        <div className="ps-header">
+          <h4>Recruiter Priority Spread</h4>
+          <select value={period} onChange={(e) => setPeriod(e.target.value)}>
+            <option value="overall">Overall</option>
+            <option value="week">This Week</option>
+            <option value="month">This Month</option>
+          </select>
+        </div>
+        {Object.keys(prioritySpread).length === 0 ? (
+          <p className="rc-empty">No priority-tagged requests in this period yet. (New form submissions carry a Priority.)</p>
+        ) : (
+          <table className="ps-table">
+            <thead>
+              <tr><th>Recruiter</th><th>High Priority</th><th>Regular</th><th>Low</th><th>Total</th></tr>
+            </thead>
+            <tbody>
+              {Object.entries(prioritySpread).map(([rec, counts]) => (
+                <tr key={rec}>
+                  <td>{rec}</td>
+                  <td>{counts['High Priority']}</td>
+                  <td>{counts['Regular']}</td>
+                  <td>{counts['Low']}</td>
+                  <td><strong>{counts['High Priority'] + counts['Regular'] + counts['Low']}</strong></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
-      <div className="stat-card">
-        <span className="stat-number">{stats.queue}</span>
-        <span className="stat-desc">Current scheduling queue</span>
+
+      <div className="role-snapshot">
+        <h4>Role Snapshot</h4>
+        <AutocompleteInput
+          options={ROLES}
+          value={role}
+          onChange={setRole}
+          placeholder="Type any part of a role…"
+        />
+        {roleStats && (
+          <>
+            <div className="heatmap-grid rs-grid">
+              <div className="stat-card">
+                <span className="stat-number">{roleStats.weekly}</span>
+                <span className="stat-desc">Completed this week</span>
+              </div>
+              <div className="stat-card">
+                <span className="stat-number">{roleStats.monthly}</span>
+                <span className="stat-desc">Completed this month</span>
+              </div>
+              <div className="stat-card">
+                <span className="stat-number">{roleStats.annual}</span>
+                <span className="stat-desc">Completed this year</span>
+              </div>
+              <div className="stat-card">
+                <span className="stat-number">{roleStats.reschedules.length}</span>
+                <span className="stat-desc">Reschedules (all time)</span>
+              </div>
+            </div>
+            {roleStats.reschedules.length > 0 && (
+              <div className="rc-block rs-reschedules">
+                <h4>Reschedule details — {role}</h4>
+                <ul>
+                  {roleStats.reschedules.map((e, i) => (
+                    <li key={i}>
+                      <strong>{e.candidate}</strong> ↔ {e.panel} · {e.rescheduledBy}-initiated
+                      <ul className="rc-reasons"><li>{e.reason || '(no reason given)'}</li></ul>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </>
+        )}
       </div>
     </div>
   );
 }
 
+// ===== App =====
+const TABS = ['Main', 'Reschedule Corner', 'Interview Heatmap', "Suchi's Corner"];
+
 function App() {
   const [view, setView] = useState('home'); // 'home' or 'form'
+  const [tab, setTab] = useState('Main');
   const [interviews, setInterviews] = useState([]);
+  const [archive, setArchive] = useState([]);
+  const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
   const [homeRole, setHomeRole] = useState('');
-  const [logs, setLogs] = useState([]);
 
-  useEffect(() => {
-    fetchInterviews();
-    fetchLogs();
-  }, []);
+  const allRows = useMemo(() => [...interviews, ...archive], [interviews, archive]);
 
-  const fetchLogs = async () => {
-    try {
-      const response = await fetch('/api/smartsheet', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'getLogs' }),
-      });
-      if (!response.ok) return;
-      const data = await response.json();
-      setLogs(data.rows || []);
-    } catch (err) {
-      console.error('Failed to load logs:', err);
-    }
+  useEffect(() => { fetchAll(); }, []);
+
+  const callApi = async (action) => {
+    const response = await fetch('/api/smartsheet', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action }),
+    });
+    if (!response.ok) throw new Error(`${action} failed`);
+    return response.json();
   };
 
-  const fetchInterviews = async () => {
+  const fetchAll = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/smartsheet', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'getSheet' }),
-      });
-      if (!response.ok) throw new Error('Failed to fetch data');
-      const data = await response.json();
-      setInterviews(data.rows || []);
+      const [main, logsData, archiveData] = await Promise.all([
+        callApi('getSheet'),
+        callApi('getLogs'),
+        callApi('getArchive'),
+      ]);
+      setInterviews(main.rows || []);
+      setLogs(logsData.rows || []);
+      setArchive((archiveData.rows || []).map(normalizeArchiveRow));
       setError(null);
     } catch (err) {
-      setError('Failed to load interviews. Please refresh.');
+      setError('Failed to load data. Please refresh.');
       console.error(err);
     } finally {
       setLoading(false);
     }
   };
 
+  const queueCount = useMemo(() =>
+    interviews.filter(r => !isStructuralRow(r) &&
+      (getCell(r, COLUMN_IDS.status) || '').toLowerCase() === 'pending').length
+  , [interviews]);
+
   const handleSubmit = async (formData) => {
     setLoading(true);
     try {
+      const todayStr = new Date().toISOString().slice(0, 10);
       const cells = [
         { columnId: COLUMN_IDS.candidateName, value: formData.candidateName },
         { columnId: COLUMN_IDS.emailId, value: formData.emailId },
@@ -496,6 +781,8 @@ function App() {
         { columnId: COLUMN_IDS.recruiter, value: formData.recruiterName },
         { columnId: COLUMN_IDS.coordinator, value: formData.coordinator },
         { columnId: COLUMN_IDS.role, value: formData.role },
+        { columnId: COLUMN_IDS.priority, value: formData.priority },
+        { columnId: COLUMN_IDS.requestedOn, value: todayStr },
         { columnId: COLUMN_IDS.status, value: 'pending' },
       ];
 
@@ -524,7 +811,7 @@ function App() {
       setSuccessMessage(`Interview request for ${formData.candidateName} submitted successfully!`);
       setTimeout(() => setSuccessMessage(''), 5000);
       setView('home');
-      await fetchInterviews();
+      await fetchAll();
     } catch (err) {
       setError(`Failed to submit: ${err.message}`);
       console.error(err);
@@ -545,36 +832,54 @@ function App() {
 
       {view === 'home' ? (
         <div className="home">
-          <div className="hero-row">
-            <button className="btn btn-hero" onClick={() => { setError(null); setView('form'); }}>
-              ＋ Schedule Fresh Interview
-            </button>
-            <MiniCalendar />
-          </div>
-
-          <div className="home-panels">
-            <div className="role-explorer">
-              <h3>🔍 Browse Upcoming Interviews</h3>
-              <select
-                className="role-select"
-                value={homeRole}
-                onChange={(e) => setHomeRole(e.target.value)}
+          <div className="tab-bar">
+            {TABS.map(t => (
+              <button
+                key={t}
+                className={`tab-btn${tab === t ? ' active' : ''}`}
+                onClick={() => setTab(t)}
               >
-                <option value="">— Select role —</option>
-                {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
-              </select>
-              <UpcomingPanel interviews={interviews} role={homeRole} />
-            </div>
-
-            <QuickStats interviews={interviews} />
+                {t}
+              </button>
+            ))}
           </div>
 
-          <RescheduleCorner logs={logs} />
+          {tab === 'Main' && (
+            <>
+              <div className="hero-row">
+                <button className="btn btn-hero" onClick={() => { setError(null); setView('form'); }}>
+                  ＋ Schedule Fresh Interview
+                </button>
+                <MiniCalendar />
+              </div>
 
-          <InterviewHeatmap interviews={interviews} logs={logs} />
+              <div className="role-explorer">
+                <h3>🔍 Browse Upcoming Interviews</h3>
+                <div className="browse-stats-row">
+                  <div className="stat-card">
+                    <span className="stat-number">{queueCount}</span>
+                    <span className="stat-desc">Current scheduling queue</span>
+                  </div>
+                </div>
+                <AutocompleteInput
+                  options={ROLES}
+                  value={homeRole}
+                  onChange={setHomeRole}
+                  placeholder="Type any part of a role…"
+                />
+                <UpcomingPanel interviews={allRows} role={homeRole} />
+              </div>
+            </>
+          )}
+
+          {tab === 'Reschedule Corner' && <RescheduleCorner logs={logs} />}
+
+          {tab === 'Interview Heatmap' && <InterviewHeatmap allRows={allRows} logs={logs} />}
+
+          {tab === "Suchi's Corner" && <SuchisCorner mainRows={interviews} allRows={allRows} logs={logs} />}
 
           <div className="home-footer">
-            <button onClick={() => { fetchInterviews(); fetchLogs(); }} className="btn btn-secondary" disabled={loading}>
+            <button onClick={fetchAll} className="btn btn-secondary" disabled={loading}>
               {loading ? '⟳ Refreshing…' : '⟳ Refresh Data'}
             </button>
           </div>
@@ -584,7 +889,7 @@ function App() {
           onSubmit={handleSubmit}
           onCancel={() => setView('home')}
           isLoading={loading}
-          interviews={interviews}
+          interviews={allRows}
         />
       )}
     </div>

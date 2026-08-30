@@ -63,6 +63,85 @@
   transition: all 0.3s ease;
 }
 
+/* Tabs */
+.tab-bar {
+  display: flex;
+  gap: 4px;
+  border-bottom: 2px solid #e8e8e8;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+
+.tab-btn {
+  background: none;
+  border: none;
+  padding: 12px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #777;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+  transition: all 0.2s ease;
+}
+
+.tab-btn:hover {
+  color: #0f2043;
+}
+
+.tab-btn.active {
+  color: #667eea;
+  border-bottom-color: #667eea;
+}
+
+/* Autocomplete */
+.autocomplete {
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+}
+
+.autocomplete input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 14px;
+  background: white;
+}
+
+.autocomplete input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.autocomplete-list {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  max-height: 220px;
+  overflow-y: auto;
+  z-index: 50;
+}
+
+.autocomplete-item {
+  padding: 10px 14px;
+  font-size: 14px;
+  color: #333;
+  cursor: pointer;
+}
+
+.autocomplete-item:hover {
+  background: #f0f4ff;
+  color: #0f2043;
+}
+
 .hero-row {
   display: flex;
   align-items: center;
@@ -90,12 +169,40 @@
   width: 240px;
 }
 
+.mini-cal-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.mini-cal-btn {
+  background: #f0f4ff;
+  border: 1px solid #dfe4ff;
+  border-radius: 6px;
+  width: 26px;
+  height: 26px;
+  font-size: 16px;
+  line-height: 1;
+  color: #667eea;
+  cursor: pointer;
+}
+
+.mini-cal-btn:hover:not(:disabled) {
+  background: #667eea;
+  color: white;
+}
+
+.mini-cal-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
 .mini-cal-title {
   font-size: 14px;
   font-weight: 700;
   color: #0f2043;
   text-align: center;
-  margin-bottom: 10px;
 }
 
 .mini-cal-grid {
@@ -130,19 +237,20 @@
   visibility: hidden;
 }
 
-/* Home panels */
-.home-panels {
-  display: grid;
-  grid-template-columns: 1fr 320px;
-  gap: 28px;
-  align-items: start;
-}
-
-.role-explorer h3,
-.quick-stats h3 {
+.role-explorer h3 {
   color: #0f2043;
   font-size: 17px;
   margin: 0 0 14px 0;
+}
+
+.browse-stats-row {
+  display: flex;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.browse-stats-row .stat-card {
+  min-width: 220px;
 }
 
 .role-select {
@@ -407,6 +515,135 @@
 .hu-candidate {
   color: #333;
   text-align: right;
+}
+
+/* Suchi's Corner */
+.suchi-corner {
+  background: #faf5ff;
+  border: 1px solid #e9d8fd;
+  border-radius: 10px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.suchi-corner h3 {
+  color: #0f2043;
+  font-size: 17px;
+  margin: 0;
+}
+
+.rc-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+
+.rc-card {
+  background: white;
+  border: 1px solid #e9d8fd;
+  border-radius: 10px;
+  padding: 16px;
+}
+
+.rc-card-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: #6b46c1;
+  margin-bottom: 12px;
+}
+
+.rc-card-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.priority-spread {
+  background: white;
+  border: 1px solid #e9d8fd;
+  border-radius: 10px;
+  padding: 16px;
+}
+
+.ps-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.ps-header h4 {
+  margin: 0;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #0f2043;
+}
+
+.ps-header select {
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.ps-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.ps-table th,
+.ps-table td {
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.ps-table th {
+  font-size: 12px;
+  text-transform: uppercase;
+  color: #999;
+  letter-spacing: 0.5px;
+}
+
+.role-snapshot {
+  background: white;
+  border: 1px solid #e9d8fd;
+  border-radius: 10px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.role-snapshot h4 {
+  margin: 0;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #0f2043;
+}
+
+.rs-grid {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.rs-reschedules {
+  border-left: 4px solid #6b46c1;
+}
+
+@media (max-width: 768px) {
+  .rc-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .rs-grid {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 
 @media (max-width: 768px) {
